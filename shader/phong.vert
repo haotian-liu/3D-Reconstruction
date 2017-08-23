@@ -5,10 +5,23 @@ uniform mat4 modelMatrix;
 uniform mat4 projMatrix;
 
 in vec3 vertPos;
-out vec4 viewVector;
+in vec3 vertNormal;
+
+out vec3 worldCoord;
+out vec3 eyeCoord;
+out vec3 Normal;
 
 void main() {
-    //gl_Position = vec4(vertPos, 1.f);
-    viewVector = viewMatrix[0];
-	gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(vertPos, 1.0);
+    vec4 position = vec4(vertPos, 1.0f);
+
+    vec4 worldPos = modelMatrix * position;
+    vec4 eyePos = viewMatrix * worldPos;
+    vec4 clipPos = projMatrix * eyePos;
+
+    worldCoord = worldPos.xyz;
+    eyeCoord = eyePos.xyz;
+
+    gl_Position = clipPos;
+
+	Normal = normalize(mat3(viewMatrix * modelMatrix) * vertNormal);
 }

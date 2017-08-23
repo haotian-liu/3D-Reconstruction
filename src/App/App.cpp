@@ -6,7 +6,7 @@
 
 void App::init() {
     r = new Renderer;
-    r->setupPolygon("assets/bunny.ply");
+    r->setupPolygon("assets/fountain.ply");
     r->setupShader("shader/phong.vert", "shader/phong.frag");
     r->setupBuffer();
 }

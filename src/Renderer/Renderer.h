@@ -28,18 +28,25 @@ public:
 private:
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     bool loadPolygon();
+    bool processPolygon();
+    bool generateNormals();
+    glm::vec3 getVertVector(int index);
+    bool updateNormal(int index, const glm::vec3 &Normal);
+
+    glm::vec3 viewDirection, lightDirection, halfVector;
+
     ShaderProgram *shader;
     GLuint mVao, mVbo[5];
 
     GLfloat Yaw = 90.f, Pitch = 0.f, Dist = 3.f;
 
     std::string filename;
-    std::vector<glm::vec3> verts;
-    std::vector<glm::vec3> norms;
+    std::vector<GLfloat> verts;
+    std::vector<GLfloat> norms;
     std::vector<GLubyte> colors;
 
     std::vector<GLuint> faces;
-    std::vector<glm::vec2> uvCoords;
+    std::vector<GLfloat> uvCoords;
 
     glm::mat4 modelMatrix, viewMatrix, projMatrix;
     bool LBtnDown = false, RBtnDown = false;

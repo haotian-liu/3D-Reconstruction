@@ -22,12 +22,18 @@ void Renderer::setupBuffer() {
     glGenBuffers(sizeof(mVbo) / sizeof(GLuint), mVbo);
     // vertex coordinate
     glBindBuffer(GL_ARRAY_BUFFER, mVbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(glm::vec3), &verts[0], GL_STATIC_DRAW);
-    GLuint locVertPos = glGetAttribLocation(shader->ProgramId(), "vertPos");
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), &verts[0], GL_STATIC_DRAW);
+    GLuint locVertPos = (GLuint)glGetAttribLocation(shader->ProgramId(), "vertPos");
     glEnableVertexAttribArray(locVertPos);
     glVertexAttribPointer(locVertPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    // vertex normal
+    glBindBuffer(GL_ARRAY_BUFFER, mVbo[1]);
+    glBufferData(GL_ARRAY_BUFFER, norms.size() * sizeof(GLfloat), &norms[0], GL_STATIC_DRAW);
+    GLuint locVertNormal = (GLuint)glGetAttribLocation(shader->ProgramId(), "vertNormal");
+    glEnableVertexAttribArray(locVertNormal);
+    glVertexAttribPointer(locVertNormal, 3, GL_FLOAT, GL_FALSE, 0, 0);
     // index
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mVbo[1]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mVbo[2]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(GLuint), &faces[0], GL_STATIC_DRAW);
     glBindVertexArray(0);
 }
@@ -53,10 +59,6 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
         Yaw += diffX;
         Pitch += diffY;
 
-        if (Pitch > 89.f)
-            Pitch = 89.f;
-        if (Pitch < -89.f)
-            Pitch = -89.f;
         updateCamera();
     }
 
@@ -65,14 +67,19 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
 }
 
 void Renderer::updateCamera() {
-    glm::vec3 front(
-            cos(glm::radians(Yaw)) * cos(glm::radians(Pitch)),
-            sin(glm::radians(Pitch)),
-            sin(glm::radians(Yaw)) * cos(glm::radians(Pitch))
+    viewDirection = glm::vec3(
+            sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)),
+            sin(glm::radians(Yaw)) * sin(glm::radians(Pitch)),
+            cos(glm::radians(Yaw))
     );
 
+    //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
+    viewDirection = glm::normalize(viewDirection);
+    lightDirection = viewDirection;
+    halfVector = glm::normalize(lightDirection + viewDirection);
+
     viewMatrix = glm::lookAt(
-            front * Dist,
+            viewDirection * Dist,
             glm::vec3(0.f, 0.f, 0.f),
             glm::vec3(0.f, 1.f, 0.f)
     );
@@ -86,21 +93,13 @@ void Renderer::render() {
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "modelMatrix"), 1, GL_FALSE, &modelMatrix[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "projMatrix"), 1, GL_FALSE, &projMatrix[0][0]);
 
+    glUniform3fv(glGetUniformLocation(shader->ProgramId(), "LightDirection"), 1, &lightDirection[0]);
+    glUniform3fv(glGetUniformLocation(shader->ProgramId(), "HalfVector"), 1, &halfVector[0]);
+
     glBindVertexArray(mVao);
     glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
 
     shader->Deactivate();
-}
-
-typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint;
-std::chrono::high_resolution_clock c;
-
-inline std::chrono::time_point<std::chrono::high_resolution_clock> now() {
-    return c.now();
-}
-
-inline double difference_micros(timepoint start, timepoint end) {
-    return (double) std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 }
 
 bool Renderer::loadPolygon() {
@@ -124,11 +123,6 @@ bool Renderer::loadPolygon() {
     // the property type given in the header. Tinyply will interally allocate the
     // the appropriate amount of memory.
 
-
-    std::vector<GLfloat> verts;
-    std::vector<GLfloat> norms;
-    std::vector<GLfloat> uvCoords;
-
     uint32_t vertexCount, normalCount, colorCount, faceCount, faceTexcoordCount, faceColorCount;
     vertexCount = normalCount = colorCount = faceCount = faceTexcoordCount = faceColorCount = 0;
 
@@ -147,22 +141,11 @@ bool Renderer::loadPolygon() {
     faceTexcoordCount = file.request_properties_from_element("face", {"texcoord"}, uvCoords, 6);
 
     // Now populate the vectors...
-    timepoint before = now();
     file.read(ss);
-    timepoint after = now();
 
-    for (int i=0; i<verts.size(); i+=3) {
-        this->verts.emplace_back(verts[i], verts[i + 1], verts[i + 2]);
-    }
-    for (int i=0; i<norms.size(); i+=3) {
-        this->norms.emplace_back(norms[i], norms[i + 1], norms[i + 2]);
-    }
-    for (int i=0; i<uvCoords.size(); i+=2) {
-        this->uvCoords.emplace_back(uvCoords[i], uvCoords[i + 1]);
-    }
+    processPolygon();
 
     // Good place to put a breakpoint!
-    std::cout << "Parsing took " << difference_micros(before, after) << "μs: " << std::endl;
     std::cout << "\tRead " << verts.size() << " total vertices (" << vertexCount << " properties)." << std::endl;
     std::cout << "\tRead " << norms.size() << " total normals (" << normalCount << " properties)." << std::endl;
     std::cout << "\tRead " << colors.size() << " total vertex colors (" << colorCount << " properties)." << std::endl;
@@ -170,6 +153,44 @@ bool Renderer::loadPolygon() {
     std::cout << "\tRead " << uvCoords.size() << " total texcoords (" << faceTexcoordCount << " properties)."
               << std::endl;
 
+    return true;
+}
+
+bool Renderer::processPolygon() {
+    if (norms.size() == 0) {
+        generateNormals();
+    }
+    return true;
+}
+
+glm::vec3 Renderer::getVertVector(int index) {
+    return glm::vec3(verts[index], verts[index + 1], verts[index + 2]);
+}
+
+bool Renderer::updateNormal(int index, const glm::vec3 &Normal) {
+    norms[index] = Normal.x;
+    norms[index + 1] = Normal.y;
+    norms[index + 2] = Normal.z;
+    return true;
+}
+
+bool Renderer::generateNormals() {
+    norms.resize(verts.size());
+    for (int i = 0; i < faces.size(); i += 3) {
+        glm::vec3 p1 = getVertVector(faces[i] * 3);
+        glm::vec3 p2 = getVertVector(faces[i + 1] * 3);
+        glm::vec3 p3 = getVertVector(faces[i + 2] * 3);
+
+        glm::vec3 u = p2 - p1, v = p3 - p1;
+        glm::vec3 Normal;
+        Normal.x = u.y * v.z - u.z * v.y;
+        Normal.y = u.z * v.x - u.x * v.z;
+        Normal.z = u.x * v.y - u.y * v.x;
+
+        updateNormal(faces[i] * 3, Normal);
+        updateNormal(faces[i + 1] * 3, Normal);
+        updateNormal(faces[i + 2] * 3, Normal);
+    }
     return true;
 }
 
