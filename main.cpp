@@ -1,6 +1,8 @@
-#include <iostream>
+#include "src/Renderer/Renderer.h"
+
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
+    auto r = new Renderer;
+    r->samplePly();
     return 0;
 }

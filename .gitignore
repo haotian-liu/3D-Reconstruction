@@ -1,5 +1,6 @@
 # ---> PROJECT
 resources/*
+assets/*
 3DReconstruction
 .vscode/*
 
