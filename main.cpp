@@ -7,6 +7,15 @@
 
 const int WinWidth = 800, WinHeight = 600;
 
+auto app = new App;
+
+inline static void mouseCallback(GLFWwindow *window, int button, int action, int mods) {
+    app->mouseCallback(window, button, action, mods);
+}
+inline static void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
+    app->cursorPosCallback(window, xpos, ypos);
+}
+
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -35,11 +44,11 @@ int main() {
         std::cerr << "Failed to initialize GLEW" << std::endl;
     }
 
-    glViewport(0, 0, screenWidth, screenHeight);
-
-    auto app = new App;
-
+    app->setViewport(screenWidth, screenHeight);
     app->init();
+
+    glfwSetMouseButtonCallback(window, mouseCallback);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
 
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.5f, 0.5f, 0.5f, 1.f);
