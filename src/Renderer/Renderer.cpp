@@ -4,9 +4,11 @@
 
 #include "Renderer.h"
 #include <fstream>
-#include <string>
-#include <vector>
 #include "tinyply/tinyply.h"
+
+void Renderer::setName(std::string filename) {
+    this->filename = filename;
+}
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint;
 std::chrono::high_resolution_clock c;
@@ -20,7 +22,6 @@ inline double difference_micros(timepoint start, timepoint end) {
 }
 
 bool Renderer::samplePly() {
-    std::string filename = "assets/bunny.ply";
     std::ifstream ss(filename, std::ios::binary);
     tinyply::PlyFile file(ss);
 
@@ -40,12 +41,6 @@ bool Renderer::samplePly() {
     // Define containers to hold the extracted data. The type must match
     // the property type given in the header. Tinyply will interally allocate the
     // the appropriate amount of memory.
-    std::vector<float> verts;
-    std::vector<float> norms;
-    std::vector<uint8_t> colors;
-
-    std::vector<uint32_t> faces;
-    std::vector<float> uvCoords;
 
     uint32_t vertexCount, normalCount, colorCount, faceCount, faceTexcoordCount, faceColorCount;
     vertexCount = normalCount = colorCount = faceCount = faceTexcoordCount = faceColorCount = 0;
