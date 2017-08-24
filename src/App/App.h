@@ -18,7 +18,7 @@ public:
     void idle();
     void mouseCallback(GLFWwindow *window, int button, int action, int mods);
     void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
-    void keyboardCallback();
+    void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 private:
     Renderer *r;

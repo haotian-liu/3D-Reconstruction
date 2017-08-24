@@ -13,7 +13,7 @@
 
 class Renderer {
 public:
-    Renderer() : shader(new ShaderProgram), modelMatrix(1.f) {
+    Renderer() : shader(new ShaderProgram), modelMatrix(1.f), mVao(0) {
         updateCamera();
     };
 
@@ -23,6 +23,7 @@ public:
     void render();
     void mouseCallback(GLFWwindow *window, int button, int action, int mods);
     void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
+    void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     void updateCamera();
 
 private:
@@ -32,8 +33,11 @@ private:
     bool generateNormals();
     glm::vec3 getVertVector(int index);
     bool updateNormal(int index, const glm::vec3 &Normal);
+    void centralizeShape();
 
-    glm::vec3 viewDirection, lightDirection, halfVector;
+    glm::vec3 viewDirection = glm::vec3(1.f, 0.f, 0.f), lightDirection;
+
+    glm::vec3 shapeOffset;
 
     ShaderProgram *shader;
     GLuint mVao, mVbo[5];

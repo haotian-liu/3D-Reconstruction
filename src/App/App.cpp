@@ -37,6 +37,6 @@ void App::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
     r->cursorPosCallback(window, xpos, ypos);
 }
 
-void App::keyboardCallback() {
-
+void App::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    r->keyCallback(window, key, scancode, action, mods);
 }

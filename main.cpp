@@ -12,6 +12,9 @@ auto app = new App;
 inline static void mouseCallback(GLFWwindow *window, int button, int action, int mods) {
     app->mouseCallback(window, button, action, mods);
 }
+inline static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    app->keyCallback(window, key, scancode, action, mods);
+}
 inline static void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
     app->cursorPosCallback(window, xpos, ypos);
 }
@@ -49,10 +52,12 @@ int main() {
 
     glfwSetMouseButtonCallback(window, mouseCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetKeyCallback(window, keyCallback);
 
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.5f, 0.5f, 0.5f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
 
         app->render();
 

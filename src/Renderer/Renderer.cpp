@@ -50,7 +50,7 @@ void Renderer::mouseCallback(GLFWwindow *window, int button, int action, int mod
 
 void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double currentY) {
     static double lastX, lastY;
-    double diffX, diffY;
+    GLfloat diffX, diffY;
 
     if (LBtnDown) {
         diffX = currentX - lastX;
@@ -59,11 +59,24 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
         Yaw += diffX;
         Pitch += diffY;
 
+        viewDirection = glm::rotate(viewDirection, glm::radians(diffX), glm::vec3(1.f, 0.f, 0.f));
+        viewDirection = glm::rotate(viewDirection, glm::radians(diffY), glm::vec3(0.f, 1.f, 0.f));
+
         updateCamera();
     }
 
     lastX = currentX;
     lastY = currentY;
+}
+
+void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_A && action != GLFW_RELEASE) {
+        viewDirection = glm::rotate(viewDirection, glm::radians(2.f), glm::vec3(0.f, 0.f, 1.f));
+    }
+    if (key == GLFW_KEY_D && action != GLFW_RELEASE) {
+        viewDirection = glm::rotate(viewDirection, glm::radians(-2.f), glm::vec3(0.f, 0.f, 1.f));
+    }
+    updateCamera();
 }
 
 void Renderer::updateCamera() {
@@ -76,7 +89,6 @@ void Renderer::updateCamera() {
     //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
     viewDirection = glm::normalize(viewDirection);
     lightDirection = viewDirection;
-    halfVector = glm::normalize(lightDirection + viewDirection);
 
     viewMatrix = glm::lookAt(
             viewDirection * Dist,
@@ -87,6 +99,7 @@ void Renderer::updateCamera() {
 
 void Renderer::render() {
     projMatrix = glm::perspective(glm::radians(60.f), 800.f / 600, 0.001f, 10.f);
+    modelMatrix = glm::rotate(glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f)) * glm::rotate(glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f)) * glm::translate(shapeOffset);
 
     shader->Activate();
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "viewMatrix"), 1, GL_FALSE, &viewMatrix[0][0]);
@@ -94,7 +107,6 @@ void Renderer::render() {
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "projMatrix"), 1, GL_FALSE, &projMatrix[0][0]);
 
     glUniform3fv(glGetUniformLocation(shader->ProgramId(), "LightDirection"), 1, &lightDirection[0]);
-    glUniform3fv(glGetUniformLocation(shader->ProgramId(), "HalfVector"), 1, &halfVector[0]);
 
     glBindVertexArray(mVao);
     glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
@@ -157,10 +169,27 @@ bool Renderer::loadPolygon() {
 }
 
 bool Renderer::processPolygon() {
+    centralizeShape();
     if (norms.size() == 0) {
         generateNormals();
     }
     return true;
+}
+
+void Renderer::centralizeShape() {
+    glm::vec3 Max, Min;
+    if (verts.size() == 0) { return; }
+    Max = Min = getVertVector(0);
+    for (int i=1; i<verts.size() / 3; i++) {
+        auto v = getVertVector(i);
+        if (Max.x < v.x) { Max.x = v.x; }
+        if (Max.y < v.y) { Max.y = v.y; }
+        if (Max.z < v.z) { Max.z = v.z; }
+        if (Min.x > v.x) { Min.x = v.x; }
+        if (Min.y > v.y) { Min.y = v.y; }
+        if (Min.z > v.z) { Min.z = v.z; }
+    }
+    shapeOffset = -(Max + Min) / 2;
 }
 
 glm::vec3 Renderer::getVertVector(int index) {
