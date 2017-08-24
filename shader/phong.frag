@@ -6,13 +6,15 @@ in vec3 worldCoord;
 in vec3 eyeCoord;
 in vec3 Normal;
 
+in vec4 color;
+
 out vec4 FragColor;
 
 void main() {
     float Shininess = 1.f;
     float Strength = 1.f;
 
-    vec3 KaColor = vec3(0.2f);
+    vec3 KaColor = vec3(color);
     vec3 KdColor = vec3(0.8f);
     vec3 KsColor = vec3(0.8f);
 

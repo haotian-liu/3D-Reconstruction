@@ -32,8 +32,14 @@ void Renderer::setupBuffer() {
     GLuint locVertNormal = (GLuint)glGetAttribLocation(shader->ProgramId(), "vertNormal");
     glEnableVertexAttribArray(locVertNormal);
     glVertexAttribPointer(locVertNormal, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    // vertex color
+    glBindBuffer(GL_ARRAY_BUFFER, mVbo[2]);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &colors[0], GL_STATIC_DRAW);
+    GLuint locVertColor = (GLuint)glGetAttribLocation(shader->ProgramId(), "vertColor");
+    glEnableVertexAttribArray(locVertColor);
+    glVertexAttribPointer(locVertColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
     // index
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mVbo[2]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mVbo[3]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(GLuint), &faces[0], GL_STATIC_DRAW);
     glBindVertexArray(0);
 }
@@ -137,6 +143,7 @@ bool Renderer::loadPolygon() {
 
     uint32_t vertexCount, normalCount, colorCount, faceCount, faceTexcoordCount, faceColorCount;
     vertexCount = normalCount = colorCount = faceCount = faceTexcoordCount = faceColorCount = 0;
+    std::vector<GLubyte> colors;
 
     // The count returns the number of instances of the property group. The vectors
     // above will be resized into a multiple of the property group size as
@@ -155,6 +162,10 @@ bool Renderer::loadPolygon() {
     // Now populate the vectors...
     file.read(ss);
 
+    for (const auto &c : colors) {
+        this->colors.push_back(static_cast<GLfloat>(c) / 255.f);
+    }
+
     processPolygon();
 
     // Good place to put a breakpoint!
@@ -172,6 +183,9 @@ bool Renderer::processPolygon() {
     centralizeShape();
     if (norms.size() == 0) {
         generateNormals();
+    }
+    if (colors.size() == 0) {
+        colors.resize(verts.size() / 3 * 4, 0.2f);
     }
     return true;
 }

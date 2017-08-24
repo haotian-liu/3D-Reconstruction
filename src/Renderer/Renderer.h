@@ -47,7 +47,7 @@ private:
     std::string filename;
     std::vector<GLfloat> verts;
     std::vector<GLfloat> norms;
-    std::vector<GLubyte> colors;
+    std::vector<GLfloat> colors;
 
     std::vector<GLuint> faces;
     std::vector<GLfloat> uvCoords;
