@@ -55,9 +55,8 @@ int main() {
     glfwSetKeyCallback(window, keyCallback);
 
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.5f, 0.5f, 0.5f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
+        if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
 
         app->render();
 

@@ -42,7 +42,7 @@ private:
     ShaderProgram *shader;
     GLuint mVao, mVbo[5];
 
-    GLfloat Yaw = 90.f, Pitch = 0.f, Dist = 3.f;
+    GLfloat Yaw = 90.f, Pitch = 0.f, Dist = 2.f;
 
     std::string filename;
     std::vector<GLfloat> verts;
