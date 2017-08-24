@@ -3,6 +3,7 @@
 //
 
 #include "App.h"
+#include <chrono>
 
 void App::init() {
     r = new Renderer;
@@ -29,8 +30,25 @@ void App::render() {
     r->render();
 }
 
-void App::idle() {
+void App::idle(GLFWwindow *window) {
+    monitorFPS(window);
+}
 
+void App::monitorFPS(GLFWwindow *window) {
+    static auto last = std::chrono::high_resolution_clock::now();
+    static auto lastRefresh = last;
+    auto current = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>
+            (current - last).count();
+    auto refreshDuration = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>
+            (current - lastRefresh).count();
+    last = current;
+    if (duration < 0.0001) { return; }
+    if (refreshDuration < 0.1) { return; }
+    lastRefresh = current;
+    GLuint FPS = static_cast<GLuint>(1.0 / duration);
+    std::string newTitle = windowTitle + " (" + std::to_string(FPS) +  " fps)";
+    glfwSetWindowTitle(window, newTitle.c_str());
 }
 
 void App::mouseCallback(GLFWwindow *window, int button, int action, int mods) {

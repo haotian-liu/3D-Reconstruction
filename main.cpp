@@ -1,13 +1,15 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <string>
 #include <iostream>
 
 #include "App/App.h"
 
 const int WinWidth = 800, WinHeight = 600;
+const std::string windowTitle = "3D Reconstruction";
 
-auto app = new App;
+App *app = new App;
 
 inline static void mouseCallback(GLFWwindow *window, int button, int action, int mods) {
     app->mouseCallback(window, button, action, mods);
@@ -27,7 +29,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    GLFWwindow *window = glfwCreateWindow(WinWidth, WinHeight, "Learn GL", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(WinWidth, WinHeight, windowTitle.c_str(), nullptr, nullptr);
 
     int screenWidth, screenHeight;
 
@@ -48,6 +50,7 @@ int main() {
     }
 
     app->setViewport(screenWidth, screenHeight);
+    app->setTitle(windowTitle);
     app->init();
 
     glfwSetMouseButtonCallback(window, mouseCallback);
@@ -57,6 +60,8 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+
+        app->idle(window);
 
         app->render();
 
