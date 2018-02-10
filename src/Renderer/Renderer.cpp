@@ -6,6 +6,8 @@
 #include <fstream>
 #include "tinyply/tinyply.h"
 
+glm::mat4 Renderer::viewTransform(1.f);
+
 void Renderer::setupPolygon(const std::string &filename) {
     this->filename = filename;
     loadPolygon();
@@ -58,15 +60,22 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
     static double lastX, lastY;
     GLfloat diffX, diffY;
 
+    diffX = currentX - lastX;
+    diffY = currentY - lastY;
+
     if (LBtnDown) {
-        diffX = currentX - lastX;
-        diffY = currentY - lastY;
 
-        Yaw += diffX;
-        Pitch += diffY;
+//        Yaw += diffX;
+//        Pitch += diffY;
 
-        viewDirection = glm::rotate(viewDirection, glm::radians(diffX), glm::vec3(1.f, 0.f, 0.f));
-        viewDirection = glm::rotate(viewDirection, glm::radians(diffY), glm::vec3(0.f, 1.f, 0.f));
+        viewTransform =
+                glm::rotate(glm::radians(diffX), glm::vec3(viewTransform * glm::vec4(0.f, 1.f, 0.f, 1.f))) *
+                glm::rotate(glm::radians(diffY), glm::vec3(viewTransform * glm::vec4(1.f, 0.f, 0.f, 1.f))) *
+                viewTransform;
+        viewDirection = glm::mat3(viewTransform) * glm::vec3(0.f, 0.f, 1.f);
+
+//        viewDirection = glm::rotate(viewDirection, glm::radians(diffX), glm::vec3(1.f, 0.f, 0.f));
+//        viewDirection = glm::rotate(viewDirection, glm::radians(diffY), glm::vec3(0.f, 1.f, 0.f));
 
         updateCamera();
     }
@@ -86,11 +95,11 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
 }
 
 void Renderer::updateCamera() {
-    viewDirection = glm::vec3(
-            sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)),
-            sin(glm::radians(Yaw)) * sin(glm::radians(Pitch)),
-            cos(glm::radians(Yaw))
-    );
+//    viewDirection = glm::vec3(
+//            sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)),
+//            sin(glm::radians(Yaw)) * sin(glm::radians(Pitch)),
+//            cos(glm::radians(Yaw))
+//    );
 
     //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
     viewDirection = glm::normalize(viewDirection);
@@ -99,7 +108,7 @@ void Renderer::updateCamera() {
     viewMatrix = glm::lookAt(
             viewDirection * Dist,
             glm::vec3(0.f, 0.f, 0.f),
-            glm::vec3(0.f, 1.f, 0.f)
+            glm::mat3(viewTransform) * glm::vec3(0.f, 1.f, 0.f)
     );
 }
 
