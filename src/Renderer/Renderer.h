@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "Shader/ShaderProgram.h"
+#include "Geometry/Shape.h"
 
 class Renderer {
 public:
@@ -30,14 +31,8 @@ private:
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     bool loadPolygon();
     bool processPolygon();
-    bool generateNormals();
-    glm::vec3 getVertVector(int index);
-    bool updateNormal(int index, const glm::vec3 &Normal);
-    void centralizeShape();
 
     glm::vec3 viewDirection = glm::vec3(1.f, 0.f, 0.f), lightDirection;
-
-    glm::vec3 shapeOffset;
 
     ShaderProgram *shader;
     GLuint mVao, mVbo[5];
@@ -46,12 +41,8 @@ private:
     static glm::mat4 viewTransform;
 
     std::string filename;
-    std::vector<GLfloat> verts;
-    std::vector<GLfloat> norms;
-    std::vector<GLfloat> colors;
 
-    std::vector<GLuint> faces;
-    std::vector<GLfloat> uvCoords;
+    Shape shape;
 
     glm::mat4 modelMatrix, viewMatrix, projMatrix;
     bool LBtnDown = false, RBtnDown = false;
