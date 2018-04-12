@@ -92,6 +92,12 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     updateCamera();
 }
 
+void Renderer::idle(GLFWwindow *window) {
+    if (cm.available()) {
+        //
+    }
+}
+
 void Renderer::updateCamera() {
 //    viewDirection = glm::vec3(
 //            sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)),
@@ -129,6 +135,7 @@ void Renderer::render() {
 
 bool Renderer::loadPolygon() {
     shape.load_from_ply(filename);
+    cm.switch_to(&shape);
     return processPolygon();
 }
 

@@ -11,6 +11,7 @@
 #include <vector>
 #include "Shader/ShaderProgram.h"
 #include "Geometry/Shape.h"
+#include "ColorMapper/ColorMapper.h"
 
 class Renderer {
 public:
@@ -25,6 +26,7 @@ public:
     void mouseCallback(GLFWwindow *window, int button, int action, int mods);
     void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
     void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    void idle(GLFWwindow *window);
     void updateCamera();
 
 private:
@@ -46,6 +48,7 @@ private:
 
     glm::mat4 modelMatrix, viewMatrix, projMatrix;
     bool LBtnDown = false, RBtnDown = false;
+    ColorMapper cm;
 };
 
 

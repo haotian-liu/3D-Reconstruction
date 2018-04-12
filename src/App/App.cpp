@@ -31,6 +31,7 @@ void App::render() {
 }
 
 void App::idle(GLFWwindow *window) {
+    r->idle(window);
     monitorFPS(window);
 }
 
