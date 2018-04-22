@@ -5,14 +5,11 @@ namespace glm
 {
 	// -- Implicit basic constructors --
 
-#	if !GLM_HAS_DEFAULTED_FUNCTIONS || defined(GLM_FORCE_CTOR_INIT)
+#	if !GLM_HAS_DEFAULTED_FUNCTIONS
 		template<typename T, qualifier Q>
 		GLM_FUNC_QUALIFIER GLM_CONSTEXPR_CTOR vec<2, T, Q>::vec()
-#			ifdef GLM_FORCE_CTOR_INIT
-				: x(0), y(0)
-#			endif
 		{}
-#	endif//!GLM_HAS_DEFAULTED_FUNCTIONS || defined(GLM_FORCE_CTOR_INIT)
+#	endif//!GLM_HAS_DEFAULTED_FUNCTIONS
 
 #	if !GLM_HAS_DEFAULTED_FUNCTIONS
 		template<typename T, qualifier Q>
@@ -98,7 +95,7 @@ namespace glm
 
 #	if !GLM_HAS_DEFAULTED_FUNCTIONS
 		template<typename T, qualifier Q>
-		GLM_FUNC_QUALIFIER GLM_CONSTEXPR_CXX14 vec<2, T, Q> & vec<2, T, Q>::operator=(vec<2, T, Q> const& v)
+		GLM_FUNC_QUALIFIER vec<2, T, Q> & vec<2, T, Q>::operator=(vec<2, T, Q> const& v)
 		{
 			this->x = v.x;
 			this->y = v.y;
@@ -108,7 +105,7 @@ namespace glm
 
 	template<typename T, qualifier Q>
 	template<typename U>
-	GLM_FUNC_QUALIFIER GLM_CONSTEXPR_CXX14 vec<2, T, Q> & vec<2, T, Q>::operator=(vec<2, U, Q> const& v)
+	GLM_FUNC_QUALIFIER vec<2, T, Q> & vec<2, T, Q>::operator=(vec<2, U, Q> const& v)
 	{
 		this->x = static_cast<T>(v.x);
 		this->y = static_cast<T>(v.y);
@@ -241,7 +238,7 @@ namespace glm
 		return *this;
 	}
 
-	template<typename T, qualifier Q>
+	template<typename T, qualifier Q> 
 	GLM_FUNC_QUALIFIER vec<2, T, Q> vec<2, T, Q>::operator++(int)
 	{
 		vec<2, T, Q> Result(*this);
@@ -249,7 +246,7 @@ namespace glm
 		return Result;
 	}
 
-	template<typename T, qualifier Q>
+	template<typename T, qualifier Q> 
 	GLM_FUNC_QUALIFIER vec<2, T, Q> vec<2, T, Q>::operator--(int)
 	{
 		vec<2, T, Q> Result(*this);
@@ -433,7 +430,7 @@ namespace glm
 	GLM_FUNC_QUALIFIER vec<2, T, Q> operator-(vec<2, T, Q> const& v)
 	{
 		return vec<2, T, Q>(
-			-v.x,
+			-v.x, 
 			-v.y);
 	}
 

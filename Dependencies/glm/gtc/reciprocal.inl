@@ -41,7 +41,7 @@ namespace glm
 	GLM_FUNC_QUALIFIER genType cot(genType angle)
 	{
 		GLM_STATIC_ASSERT(std::numeric_limits<genType>::is_iec559, "'cot' only accept floating-point values");
-
+	
 		genType const pi_over_2 = genType(3.1415926535897932384626433832795 / 2.0);
 		return glm::tan(pi_over_2 - angle);
 	}
@@ -165,7 +165,7 @@ namespace glm
 	GLM_FUNC_QUALIFIER genType acsch(genType x)
 	{
 		GLM_STATIC_ASSERT(std::numeric_limits<genType>::is_iec559, "'acsch' only accept floating-point values");
-		return asinh(genType(1) / x);
+		return acsch(genType(1) / x);
 	}
 
 	template<length_t L, typename T, qualifier Q>

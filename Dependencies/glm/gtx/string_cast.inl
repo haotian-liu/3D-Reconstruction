@@ -25,7 +25,7 @@ namespace detail
 		char text[STRING_BUFFER];
 		va_list list;
 
-		if(msg == GLM_NULLPTR)
+		if(msg == 0)
 			return std::string();
 
 		va_start(list, msg);
@@ -232,8 +232,8 @@ namespace detail
 				LiteralStr, LiteralStr, LiteralStr));
 
 			return detail::format(FormatStr.c_str(),
-				static_cast<typename cast<T>::value_type>(x[0]),
-				static_cast<typename cast<T>::value_type>(x[1]),
+				static_cast<typename cast<T>::value_type>(x[0]), 
+				static_cast<typename cast<T>::value_type>(x[1]), 
 				static_cast<typename cast<T>::value_type>(x[2]));
 		}
 	};
@@ -249,7 +249,7 @@ namespace detail
 				PrefixStr,
 				LiteralStr, LiteralStr, LiteralStr, LiteralStr));
 
-			return detail::format(FormatStr.c_str(),
+			return detail::format(FormatStr.c_str(), 
 				static_cast<typename cast<T>::value_type>(x[0]),
 				static_cast<typename cast<T>::value_type>(x[1]),
 				static_cast<typename cast<T>::value_type>(x[2]),

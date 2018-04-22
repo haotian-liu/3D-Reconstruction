@@ -509,22 +509,6 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////
-// nullptr
-
-//
-#if GLM_LANG & GLM_LANG_CXX0X_FLAG
-#	define GLM_HAS_NULLPTR 1
-#else
-#	define GLM_HAS_NULLPTR 0
-#endif
-
-#if GLM_HAS_NULLPTR
-#	define GLM_NULLPTR nullptr
-#else
-#	define GLM_NULLPTR 0
-#endif
-
-///////////////////////////////////////////////////////////////////////////////////
 // Static assert
 
 #if GLM_HAS_STATIC_ASSERT
@@ -720,19 +704,8 @@
 
 #if GLM_HAS_DEFAULTED_FUNCTIONS
 #	define GLM_DEFAULT = default
-
-#	ifdef GLM_FORCE_NO_CTOR_INIT
-#		undef GLM_FORCE_CTOR_INIT
-#	endif
-
-#	ifdef GLM_FORCE_CTOR_INIT
-#		define GLM_DEFAULT_CTOR
-#	else
-#		define GLM_DEFAULT_CTOR = default
-#	endif
 #else
 #	define GLM_DEFAULT
-#	define GLM_DEFAULT_CTOR
 #endif
 
 #if GLM_HAS_CONSTEXPR || GLM_HAS_CONSTEXPR_PARTIAL
@@ -751,18 +724,6 @@
 #	define GLM_RELAXED_CONSTEXPR constexpr
 #else
 #	define GLM_RELAXED_CONSTEXPR const
-#endif
-
-#if GLM_LANG >= GLM_LANG_CXX14
-#	if ((GLM_COMPILER & GLM_COMPILER_VC) && (GLM_COMPILER <= GLM_COMPILER_VC14)) // Visual C++ < 2017 does not support extended const expressions https://msdn.microsoft.com/en-us/library/hh567368.aspx https://github.com/g-truc/glm/issues/749
-#		define GLM_CONSTEXPR_CXX14
-#	else
-#		define GLM_CONSTEXPR_CXX14 GLM_CONSTEXPR
-#	endif
-#	define GLM_CONSTEXPR_CTOR_CXX14 GLM_CONSTEXPR_CTOR
-#else
-#	define GLM_CONSTEXPR_CXX14
-#	define GLM_CONSTEXPR_CTOR_CXX14
 #endif
 
 #if GLM_ARCH == GLM_ARCH_PURE
@@ -829,7 +790,7 @@ namespace glm
 ///////////////////////////////////////////////////////////////////////////////////
 // Check inclusions of different versions of GLM
 
-#elif ((GLM_SETUP_INCLUDED != GLM_VERSION) && !defined(GLM_FORCE_IGNORE_VERSION))
+#elif ((GLM_SETUP_INCLUDED != GLM_VERSION) && !defined(GLM_FORCE_IGNORE_VERSION))	
 #	error "GLM error: A different version of GLM is already included. Define GLM_FORCE_IGNORE_VERSION before including GLM headers to ignore this error."
 #elif GLM_SETUP_INCLUDED == GLM_VERSION
 
