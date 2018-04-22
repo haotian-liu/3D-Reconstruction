@@ -67,8 +67,8 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
 //        Pitch += diffY;
 
         viewTransform =
-                glm::rotate(glm::radians(diffX), glm::vec3(viewTransform * glm::vec4(0.f, 1.f, 0.f, 1.f))) *
-                glm::rotate(glm::radians(diffY), glm::vec3(viewTransform * glm::vec4(1.f, 0.f, 0.f, 1.f))) *
+                glm::rotate(glm::mat4(1.f), glm::radians(diffX), glm::vec3(viewTransform * glm::vec4(0.f, 1.f, 0.f, 1.f))) *
+                glm::rotate(glm::mat4(1.f), glm::radians(diffY), glm::vec3(viewTransform * glm::vec4(1.f, 0.f, 0.f, 1.f))) *
                 viewTransform;
         viewDirection = glm::mat3(viewTransform) * glm::vec3(0.f, 0.f, 1.f);
 
@@ -83,12 +83,12 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
 }
 
 void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_A && action != GLFW_RELEASE) {
-        viewDirection = glm::rotate(viewDirection, glm::radians(2.f), glm::vec3(0.f, 0.f, 1.f));
-    }
-    if (key == GLFW_KEY_D && action != GLFW_RELEASE) {
-        viewDirection = glm::rotate(viewDirection, glm::radians(-2.f), glm::vec3(0.f, 0.f, 1.f));
-    }
+//    if (key == GLFW_KEY_A && action != GLFW_RELEASE) {
+//        viewDirection = glm::rotate(viewDirection, glm::radians(2.f), glm::vec3(0.f, 0.f, 1.f));
+//    }
+//    if (key == GLFW_KEY_D && action != GLFW_RELEASE) {
+//        viewDirection = glm::rotate(viewDirection, glm::radians(-2.f), glm::vec3(0.f, 0.f, 1.f));
+//    }
     updateCamera();
 }
 
@@ -107,7 +107,7 @@ void Renderer::updateCamera() {
 
     //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
     viewDirection = glm::normalize(viewDirection);
-    lightDirection = viewDirection;
+    lightDirection = glm::mat3(viewTransform) * viewDirection;
 
     viewMatrix = glm::lookAt(
             viewDirection * Dist,
@@ -118,7 +118,9 @@ void Renderer::updateCamera() {
 
 void Renderer::render() {
     projMatrix = glm::perspective(glm::radians(60.f), 800.f / 600, 0.001f, 10.f);
-    modelMatrix = glm::rotate(glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f)) * glm::rotate(glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f)) * glm::translate(shape.offset);
+    modelMatrix = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f))
+                  * glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f))
+                  * glm::translate(glm::mat4(1.f), shape.offset);
 
     shader->Activate();
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "viewMatrix"), 1, GL_FALSE, &viewMatrix[0][0]);

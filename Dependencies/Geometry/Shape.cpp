@@ -86,7 +86,7 @@ void Shape::centralize() {
         if (Min.y > v.y) { Min.y = v.y; }
         if (Min.z > v.z) { Min.z = v.z; }
     }
-    offset = -(Max + Min) / 2;
+    offset = -(Max + Min) / 2.f;
 }
 
 void Shape::generate_normals() {

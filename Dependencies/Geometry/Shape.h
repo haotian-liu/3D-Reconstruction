@@ -8,6 +8,7 @@
 #include "GLInclude.h"
 #include <utility>
 #include <vector>
+#include <string>
 
 struct Shape {
     Shape() {}

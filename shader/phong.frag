@@ -14,9 +14,9 @@ void main() {
     float Shininess = 1.f;
     float Strength = 1.f;
 
-    vec3 KaColor = vec3(color);
-    vec3 KdColor = vec3(0.8f);
-    vec3 KsColor = vec3(0.8f);
+    vec3 KaColor = vec3(color) * 0.2f;
+    vec3 KdColor = vec3(color);
+    vec3 KsColor = vec3(0.f);
 
     vec3 N = Normal;
     vec3 L = normalize(LightDirection - worldCoord);
