@@ -107,7 +107,7 @@ void Renderer::updateCamera() {
 
     //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
     viewDirection = glm::normalize(viewDirection);
-    lightDirection = glm::mat3(viewTransform) * viewDirection;
+    lightDirection = viewDirection;
 
     viewMatrix = glm::lookAt(
             viewDirection * Dist,
