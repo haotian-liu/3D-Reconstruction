@@ -66,7 +66,7 @@ int main() {
         app->render();
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
+        glfwWaitEvents();
     }
 
     glfwTerminate();
