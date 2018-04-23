@@ -6,7 +6,7 @@
 
 #include "App/App.h"
 
-const int WinWidth = 800, WinHeight = 600;
+const int WinWidth = 640, WinHeight = 480;
 const std::string windowTitle = "3D Reconstruction";
 
 App *app = new App;

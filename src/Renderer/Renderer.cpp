@@ -70,7 +70,6 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
                 glm::rotate(glm::mat4(1.f), glm::radians(diffX), glm::vec3(viewTransform * glm::vec4(0.f, 1.f, 0.f, 1.f))) *
                 glm::rotate(glm::mat4(1.f), glm::radians(diffY), glm::vec3(viewTransform * glm::vec4(1.f, 0.f, 0.f, 1.f))) *
                 viewTransform;
-        viewDirection = glm::mat3(viewTransform) * glm::vec3(0.f, 0.f, 1.f);
 
 //        viewDirection = glm::rotate(viewDirection, glm::radians(diffX), glm::vec3(1.f, 0.f, 0.f));
 //        viewDirection = glm::rotate(viewDirection, glm::radians(diffY), glm::vec3(0.f, 1.f, 0.f));
@@ -106,21 +105,26 @@ void Renderer::updateCamera() {
 //    );
 
     //lightDirection = normalize(glm::vec3(100.f, 200.f, 100.f));
+    viewDirection = glm::mat3(viewTransform) * glm::vec3(0.f, 0.f, 1.f);
     viewDirection = glm::normalize(viewDirection);
-    lightDirection = viewDirection;
+    lightDirection = viewDirection - shape.offset;
 
     viewMatrix = glm::lookAt(
-            viewDirection * Dist,
-            glm::vec3(0.f, 0.f, 0.f),
+            viewDirection * Dist - shape.offset,
+//            glm::vec3(0.f, 0.f, 0.f),
+            -shape.offset,
             glm::mat3(viewTransform) * glm::vec3(0.f, 1.f, 0.f)
     );
 }
 
 void Renderer::render() {
-    projMatrix = glm::perspective(glm::radians(60.f), 800.f / 600, 0.001f, 10.f);
-    modelMatrix = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f))
-                  * glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f))
-                  * glm::translate(glm::mat4(1.f), shape.offset);
+    projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
+//    viewMatrix = viewMatrix * glm::translate(glm::mat4(1.f), shape.offset);
+//    modelMatrix = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f))
+//                  * glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f))
+//                  * glm::translate(glm::mat4(1.f), shape.offset);
+    modelMatrix = glm::mat4(1.f);
+    updateCamera();
 
     shader->Activate();
     glUniformMatrix4fv(glGetUniformLocation(shader->ProgramId(), "viewMatrix"), 1, GL_FALSE, &viewMatrix[0][0]);
