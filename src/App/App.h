@@ -21,6 +21,7 @@ public:
     void mouseCallback(GLFWwindow *window, int button, int action, int mods);
     void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
     void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    void screenShot();
 
 private:
     void monitorFPS(GLFWwindow *window);

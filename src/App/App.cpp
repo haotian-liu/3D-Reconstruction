@@ -63,3 +63,7 @@ void App::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
 void App::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     r->keyCallback(window, key, scancode, action, mods);
 }
+
+void App::screenShot() {
+    r->screenShot();
+}

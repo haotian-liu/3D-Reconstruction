@@ -3,6 +3,9 @@
 //
 
 #include "Renderer.h"
+#include <boost/lexical_cast.hpp>
+#include <sys/stat.h>
+#include <fstream>
 
 glm::mat4 Renderer::viewTransform(1.f);
 
@@ -82,13 +85,37 @@ void Renderer::cursorPosCallback(GLFWwindow *window, double currentX, double cur
 }
 
 void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-//    if (key == GLFW_KEY_A && action != GLFW_RELEASE) {
-//        viewDirection = glm::rotate(viewDirection, glm::radians(2.f), glm::vec3(0.f, 0.f, 1.f));
-//    }
-//    if (key == GLFW_KEY_D && action != GLFW_RELEASE) {
-//        viewDirection = glm::rotate(viewDirection, glm::radians(-2.f), glm::vec3(0.f, 0.f, 1.f));
-//    }
+    static cv::Mat flipped;
+    static auto start_timestamp = std::time(0);
+    static auto folder = boost::lexical_cast<std::string>(start_timestamp);
+    static auto dir = "output/" + folder;
+    mkdir(dir.c_str(), 0777);
+    if (key == GLFW_KEY_S && action != GLFW_RELEASE) {
+        auto timestamp = std::time(0) - start_timestamp;
+        auto ts = boost::lexical_cast<std::string>(timestamp);
+        printf("Snapshot taken!\n");
+        cv::flip(screenshot_data, flipped, 0);
+        cv::resize(flipped, screenshot_data, cv::Size(640, 480), 0, 0, cv::INTER_CUBIC);
+        cv::imwrite("output/" + folder + "/" + ts + ".jpg", screenshot_data);
+
+        std::ofstream out;
+        out.open("output/" + folder + "/pose.log", std::ios::app);
+        out << timestamp << std::endl;
+        for (int i=0; i<4; i++) {
+            for (int j=0; j<4; j++) {
+                out << viewMatrix[j][i] << " ";
+            }
+            out << std::endl;
+        }
+        out << std::endl;
+        out.close();
+    }
     updateCamera();
+}
+
+void Renderer::screenShot() {
+    glReadPixels(0, 0, 640 * 2, 480 * 2, GL_BGR, GL_UNSIGNED_BYTE, screenshot_raw);
+    screenshot_data = cv::Mat(480 * 2, 640 * 2, CV_8UC3, screenshot_raw);
 }
 
 void Renderer::idle(GLFWwindow *window) {

@@ -3,6 +3,7 @@ resources/*
 assets/*
 3DReconstruction
 .vscode/*
+output/*
 
 # ---> Clion
 */cmake-build-*

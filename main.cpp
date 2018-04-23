@@ -66,6 +66,9 @@ int main() {
         app->render();
 
         glfwSwapBuffers(window);
+
+        app->screenShot();
+
         glfwWaitEvents();
     }
 
