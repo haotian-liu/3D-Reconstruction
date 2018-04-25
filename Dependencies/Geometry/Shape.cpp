@@ -111,7 +111,7 @@ void Shape::generate_normals() {
 }
 
 void Shape::initialize_colors() {
-    colors.resize(vertices.size(), glm::vec4(0.2f));
+    colors.resize(vertices.size(), glm::vec4(0.5f));
 }
 
 void Shape::convert_to_glm(const std::vector<GLfloat> &in_vector, std::vector<glm::vec2> &out_glm_vector) {
