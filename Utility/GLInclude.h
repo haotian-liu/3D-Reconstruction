@@ -7,5 +7,9 @@
 
 #include <GL/glew.h>
 #include "ext.hpp"
+#define DEBUG
+#ifdef DEBUG
+#include <iostream>
+#endif
 
 #endif //INC_3DRECONSTRUCTION_GLINCLUDE_H
