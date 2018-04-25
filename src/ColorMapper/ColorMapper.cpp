@@ -58,10 +58,11 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 
 void ColorMapper::base_map() {
     const int frameWidth = 640, frameHeight = 480;
+    const int msaa = 1;
 
     const glm::mat4 projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
 
-    GLuint fboMsaa, rboMsaa, vao, vbo[2];
+    GLuint fboMsaa, rboMsaa, fbo, rbo, vao, vbo[2];
     ShaderProgram shader;
     compileShader(&shader, "shader/depth.vert", "shader/depth.frag");
 
@@ -81,6 +82,7 @@ void ColorMapper::base_map() {
     glGenRenderbuffers(1, &rboMsaa);
     glBindRenderbuffer(GL_RENDERBUFFER, rboMsaa);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
+//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboMsaa);
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -88,6 +90,21 @@ void ColorMapper::base_map() {
         fprintf(stderr, "INCOMPLETE MSAA FBO\n");
         exit(-1);
     }
+
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(status != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "INCOMPLETE FBO\n");
+        exit(-1);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboMsaa);
 
     glDrawBuffer(GL_NONE);
 
@@ -100,7 +117,7 @@ void ColorMapper::base_map() {
     glViewport(0, 0, frameWidth, frameHeight);
 
     cv::Mat screenshot_data;
-    auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
+    auto screenshot_raw = new GLfloat[frameWidth * frameHeight * msaa * msaa];
 
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
@@ -110,7 +127,7 @@ void ColorMapper::base_map() {
         glm::vec4 vert;
         int cx, cy;
 
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
         shader.Activate();
         glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
@@ -119,8 +136,24 @@ void ColorMapper::base_map() {
         glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
         shader.Deactivate();
 
-        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
-        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fboMsaa);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+        glBlitFramebuffer(
+                               0, 0, frameWidth, frameHeight,
+                               0, 0, frameWidth, frameHeight,
+                               GL_DEPTH_BUFFER_BIT, GL_NEAREST
+        );
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+        glReadPixels(0, 0, frameWidth * msaa, frameHeight * msaa, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(frameHeight * msaa, frameWidth * msaa, CV_32F, screenshot_raw);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fboMsaa);
+
+//        cv::imshow("win", screenshot_data);
+//        cv::waitKey(0);
+//        exit(-1);
 
         for (int i=0; i<shape->vertices.size(); i++) {
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
@@ -129,7 +162,7 @@ void ColorMapper::base_map() {
             cx = (vert.x + 1) * frameWidth / 2;
             cy = (vert.y + 1) * frameHeight / 2;
             float pixel = screenshot_data.at<float>(cy, cx);
-            printf("%f %f\n", pixel, z);
+//            printf("%f %f\n", pixel, z);
             if (std::fabs(pixel - z) < 0.00002f) {
                 cx = (vert.x + 1) * 320;
                 cy = (vert.y + 1) * 240;
@@ -145,7 +178,7 @@ void ColorMapper::base_map() {
 //                shape->colors[i] /= ++mapped_count[i];
             }
         }
-        break;
+//        break;
     }
 
     delete[]mapped_count;
