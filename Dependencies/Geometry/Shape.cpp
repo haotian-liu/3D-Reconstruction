@@ -104,6 +104,8 @@ void Shape::generate_normals() {
         Normal.y = u.z * v.x - u.x * v.z;
         Normal.z = u.x * v.y - u.y * v.x;
 
+        Normal = glm::normalize(Normal);
+
         normals[f1] = normals[f2] = normals[f3] = Normal;
     }
 }
