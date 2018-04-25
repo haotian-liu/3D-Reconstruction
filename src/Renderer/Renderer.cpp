@@ -81,8 +81,12 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     static auto start_timestamp = std::time(0);
     static auto folder = boost::lexical_cast<std::string>(start_timestamp);
     static auto dir = "output/" + folder;
-    mkdir(dir.c_str(), 0777);
+    static bool dirCreated = false;
     if (key == GLFW_KEY_S && action != GLFW_RELEASE) {
+        if (!dirCreated) {
+            dirCreated = true;
+            mkdir(dir.c_str(), 0777);
+        }
         auto timestamp = std::time(0) - start_timestamp;
         auto ts = boost::lexical_cast<std::string>(timestamp);
         printf("Snapshot taken!\n");
