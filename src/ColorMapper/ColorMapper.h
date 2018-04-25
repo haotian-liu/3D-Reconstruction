@@ -8,6 +8,7 @@
 #include <vector>
 #include "opencv/cv.hpp"
 #include "Geometry/Shape.h"
+#include "Shader/ShaderProgram.h"
 
 struct MapUnit {
     explicit MapUnit(std::string in_path, std::string in_key, const glm::mat4 &transform) :
@@ -40,6 +41,7 @@ private:
     void load_keyframes();
     void load_images();
     void base_map();
+    bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     Shape *shape = nullptr;
 
     std::vector<MapUnit> map_units;

@@ -10,6 +10,7 @@ void App::init() {
     r->setupPolygon("assets/fountain.ply");
     r->setupShader("shader/phong.vert", "shader/phong.frag");
     r->setupBuffer();
+    updateViewport();
 }
 
 void App::setViewport(int width, int height) {
