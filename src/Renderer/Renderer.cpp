@@ -163,7 +163,10 @@ bool Renderer::loadPolygon() {
 bool Renderer::processPolygon() {
     shape.centralize();
     if (shape.normals.empty()) { shape.generate_normals(); }
-    if (shape.colors.empty()) { shape.initialize_colors(); }
+    if (shape.colors.empty()) {
+        shape.initialize_colors();
+        cm.map_color();
+    }
     return true;
 }
 
