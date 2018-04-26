@@ -57,7 +57,8 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 }
 
 void ColorMapper::base_map() {
-    const int frameWidth = 640, frameHeight = 480;
+    const int SSAA = 2;
+    const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
 
     const glm::mat4 projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
 
@@ -86,7 +87,7 @@ void ColorMapper::base_map() {
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if(status != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "INCOMPLETE MSAA FBO\n");
+        fprintf(stderr, "INCOMPLETE FBO\n");
         exit(-1);
     }
 
@@ -151,8 +152,8 @@ void ColorMapper::base_map() {
             }
 
             float pixel = screenshot_data.at<float>(cy, cx);
-//            float gradient = grad.at<float>(cy, cx);
-//            if (gradient > 0.0000001) continue;
+            float gradient = grad.at<float>(cy, cx);
+            if (gradient > 0.000001) continue;
 //            printf("%f %f\n", pixel, z);
             if (std::fabs(pixel - z) < 0.00002f) {
                 cx = (vert.x + 1) * 320;
@@ -169,9 +170,6 @@ void ColorMapper::base_map() {
                 shape->colors[i] /= ++mapped_count[i];
             }
         }
-//        break;
-        static int count = 0;
-//        if (++count >= 5) break;
     }
 
     delete[]mapped_count;
