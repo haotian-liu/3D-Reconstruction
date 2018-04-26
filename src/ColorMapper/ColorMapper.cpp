@@ -141,9 +141,14 @@ void ColorMapper::base_map() {
         cv::addWeighted(grad_x, 0.5, grad_y, 0.5, 0, grad);
 
         for (int i=0; i<shape->vertices.size(); i++) {
+//            glm::vec4 tmp_vert = mapper.transform * glm::vec4(shape->vertices[i], 1.f);
+//            vert.x = -projMatrix[0][0] * tmp_vert.x / tmp_vert.z;
+//            vert.y = -projMatrix[1][1] * tmp_vert.y / tmp_vert.z;
+//            vert.z = -(projMatrix[2][2] * tmp_vert.z + projMatrix[3][2]) / tmp_vert.z;
+//            vert.w = projMatrix[2][3] * tmp_vert.z;
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
-            GLfloat z = .5f + vert.z / vert.w / 2.f;
             vert /= vert.w;
+            GLfloat z = .5f + vert.z / 2.f;
             cx = (vert.x + 1) * frameWidth / 2;
             cy = (vert.y + 1) * frameHeight / 2;
 
