@@ -4,6 +4,7 @@
 
 #include "ColorMapper.h"
 #include <fstream>
+#include <random>
 
 void ColorMapper::map_color() {
     load_keyframes();
@@ -20,11 +21,17 @@ void ColorMapper::load_keyframes() {
 
     std::string imageId;
     glm::mat4 transform;
+
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_real_distribution<> dist(0.99, 1.01);
+
     while (!keyFrameFile.eof()) {
         keyFrameFile >> imageId;
         for (int i=0; i<4; i++) {
             for (int j=0; j<4; j++) {
                 keyFrameFile >> transform[j][i];
+                transform[j][i] *= dist(rng);
             }
         }
         map_units.emplace_back(path_folder, imageId, transform);
