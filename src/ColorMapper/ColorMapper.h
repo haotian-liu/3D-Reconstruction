@@ -26,6 +26,7 @@ struct MapUnit {
     std::string path;
     std::string key;
     glm::mat4 transform;
+    std::vector<GLuint> vertices;
     cv::Mat color_image;
     cv::Mat grey_image;
 };
@@ -45,6 +46,7 @@ private:
     Shape *shape = nullptr;
 
     std::vector<MapUnit> map_units;
+    std::vector<GLfloat> grey_colors;
 };
 
 

@@ -118,7 +118,9 @@ void ColorMapper::base_map() {
 
     std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
 
-    for (const auto &mapper : map_units) {
+    for (auto &mapper : map_units) {
+        grey_colors.clear();
+        grey_colors.resize(shape->vertices.size());
         glm::mat4 transform = projMatrix * mapper.transform;
         glm::vec4 vert;
         int cx, cy;
@@ -170,19 +172,139 @@ void ColorMapper::base_map() {
             if (std::fabs(pixel - z) < 0.00002f) {
                 cx = (vert.x + 1) * 320;
                 cy = (vert.y + 1) * 240;
-                cv::Vec3b pixel = mapper.color_image.at<cv::Vec3b>(cy, cx);
+
+                float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f;
+                grey_colors[i] *= mapped_count[i];
+                grey_colors[i] += pixel;
+                grey_colors[i] /= (mapped_count[i] + 1);
+
+                cv::Vec3b pixel_c = mapper.color_image.at<cv::Vec3b>(cy, cx);
                 shape->colors[i] *= mapped_count[i];
                 shape->colors[i] += glm::vec4(
 //                        1.f, 0.f, 0.f,
-                        pixel.val[2] / 255.f,
-                        pixel.val[1] / 255.f,
-                        pixel.val[0] / 255.f,
+                        pixel_c.val[2] / 255.f,
+                        pixel_c.val[1] / 255.f,
+                        pixel_c.val[0] / 255.f,
                         1.f
                 );
-                shape->colors[i] /= ++mapped_count[i];
+                shape->colors[i] /= (mapped_count[i] + 1);
+                mapped_count[i]++;
+                mapper.vertices.push_back(i);
             }
         }
     }
+
+    ///////////////////////////////////////
+    ////////// Optimize camera Pose ///////
+
+    for (auto &mapper : map_units) {
+        glm::mat4 transform = projMatrix * mapper.transform;
+        glm::vec4 vert;
+        int cx, cy;
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+
+        glBindVertexArray(vao);
+        glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
+        shader.Deactivate();
+
+        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
+
+        cv::Mat grad_x, grad_y;
+        cv::Scharr(mapper.grey_image, grad_x, -1, 1, 0);
+        cv::Scharr(mapper.grey_image, grad_y, -1, 1, 0);
+
+//        cv::imshow("grad_x", grad_x);
+//        cv::waitKey(0);
+//        cv::imshow("grad_y", grad_y);
+//        cv::waitKey(0);
+
+        cv::Mat Jr, r, deltaX;
+        cv::Mat _Jr;
+        cv::Mat J_Gamma, Ju, Jg;
+
+        for (int i=0; i<mapper.vertices.size(); i++) {
+            glm::vec4 tmp_vert = mapper.transform * glm::vec4(shape->vertices[i], 1.f);
+
+            Jg = (cv::Mat_<float>(4, 6) <<
+                    0, tmp_vert.z, tmp_vert.y, tmp_vert.w, 0, 0,
+                    -tmp_vert.z, 0, tmp_vert.x, 0, tmp_vert.w, 0,
+                    tmp_vert.y, -tmp_vert.x, 0, 0, 0, tmp_vert.w,
+                    0, 0, 0, 0, 0, 0
+            );
+
+            vert.x = -projMatrix[0][0] * tmp_vert.x / tmp_vert.z;
+            vert.y = -projMatrix[1][1] * tmp_vert.y / tmp_vert.z;
+            vert.z = -(projMatrix[2][2] * tmp_vert.z + projMatrix[3][2]) / tmp_vert.z;
+            vert.w = projMatrix[2][3] * tmp_vert.z;
+
+            cx = (vert.x + 1) * 320;
+            cy = (vert.y + 1) * 240;
+
+            Ju = (cv::Mat_<float>(2, 4) <<
+                    -320.0 * projMatrix[0][0] / tmp_vert.z, 0, 320.0 * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
+                    0, -320.0 * projMatrix[1][1] / tmp_vert.z, 320.0 * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
+            );
+
+            float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f - grey_colors[i];
+
+            J_Gamma = (cv::Mat_<float>(1, 2) <<
+                    grad_x.at<uchar>(cy, cx) / 255.0,
+                    grad_y.at<uchar>(cy, cx) / 255.0
+            );
+
+            _Jr = -J_Gamma * Ju * Jg;
+
+//            std::cout
+//                    << Ju << std::endl
+//                    << Jg << std::endl
+//                    << J_Gamma << std::endl;
+//                    << _Jr << std::endl;
+            Jr.push_back(_Jr);
+            r.push_back(pixel);
+        }
+
+        cv::Mat JrT = Jr.t();
+        cv::Mat src1, src2;
+        src1 = JrT * Jr;
+        src2 = JrT * -r;
+        cv::solve(src1, src2, deltaX);
+
+        std::cout << src1 << std::endl
+                  << src2 << std::endl
+                  << deltaX << std::endl;
+
+        float alpha_i = deltaX.at<float>(0, 0);
+        float beta_i = deltaX.at<float>(1, 0);
+        float gamma_i = deltaX.at<float>(2, 0);
+        float ai = deltaX.at<float>(3, 0);
+        float bi = deltaX.at<float>(4, 0);
+        float ci = deltaX.at<float>(5, 0);
+
+        std::cout << alpha_i << " "
+                  << beta_i << " "
+                  << gamma_i << " "
+                  << ai << " "
+                  << bi << " "
+                  << ci << " "
+                  << std::endl;
+
+        glm::mat4 kx(
+                glm::vec4(1.f, gamma_i, -beta_i, 0.f),
+                glm::vec4(-gamma_i, 1.f, alpha_i, 0.f),
+                glm::vec4(beta_i, -alpha_i, 1.f, 0.f),
+                glm::vec4(ai, bi, ci, 1.f)
+        );
+
+        mapper.transform = kx * mapper.transform;
+    }
+
+
+    ///////////////////////////////////////
 
     delete[]mapped_count;
     delete[]screenshot_raw;
