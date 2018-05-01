@@ -19,7 +19,9 @@ struct MapUnit {
     void load_image() {
         auto temp = cv::imread(path + key + ".jpg");
         cv::flip(temp, color_image, 0);
-        cv::cvtColor(color_image, grey_image, CV_RGB2GRAY);
+        cv::cvtColor(color_image, grey_image, CV_BGR2GRAY);
+        cv::Scharr(grey_image, grad_x, -1, 1, 0);
+        cv::Scharr(grey_image, grad_y, -1, 0, 1);
 //        cv::imshow("window", grey_image);
 //        cv::waitKey(0);
     }
@@ -29,6 +31,7 @@ struct MapUnit {
     std::vector<GLuint> vertices;
     cv::Mat color_image;
     cv::Mat grey_image;
+    cv::Mat grad_x, grad_y;
 };
 
 class ColorMapper {
@@ -41,7 +44,7 @@ public:
 private:
     void load_keyframes();
     void load_images();
-    void base_map();
+    void base_map(bool map_color = true);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     Shape *shape = nullptr;
 
