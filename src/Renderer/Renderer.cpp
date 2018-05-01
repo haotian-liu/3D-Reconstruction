@@ -91,7 +91,7 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
         auto ts = boost::lexical_cast<std::string>(timestamp);
         printf("Snapshot taken!\n");
         cv::flip(screenshot_data, flipped, 0);
-        cv::resize(flipped, screenshot_data, cv::Size(640, 480), 0, 0, cv::INTER_CUBIC);
+//        cv::resize(flipped, screenshot_data, cv::Size(640, 480), 0, 0, cv::INTER_CUBIC);
         cv::imwrite("output/" + folder + "/" + ts + ".jpg", screenshot_data);
 
         std::ofstream out;
