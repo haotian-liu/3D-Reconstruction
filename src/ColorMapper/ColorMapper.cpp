@@ -221,6 +221,20 @@ void ColorMapper::base_map(bool map_color) {
     }
 
     ///////////////////////////////////////
+
+    delete[]mapped_count;
+    delete[]screenshot_raw;
+    glDeleteBuffers(2, vbo);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteRenderbuffers(1, &rbo);
+    glDeleteFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_CULL_FACE);
+
+    if (map_color) { return; }
+
+    ///////////////////////////////////////
     ////////// Optimize camera Pose ///////
 
     for (auto &mapper : map_units) {
@@ -317,17 +331,4 @@ void ColorMapper::base_map(bool map_color) {
 
         mapper.transform = kx * mapper.transform;
     }
-
-
-    ///////////////////////////////////////
-
-    delete[]mapped_count;
-    delete[]screenshot_raw;
-    glDeleteBuffers(2, vbo);
-    glDeleteVertexArrays(1, &vao);
-    glDeleteRenderbuffers(1, &rbo);
-    glDeleteFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glDisable(GL_CULL_FACE);
 }
