@@ -274,7 +274,7 @@ void ColorMapper::base_map(bool map_color) {
 
             Ju = (cv::Mat_<float>(2, 4) <<
                     -320.0 * projMatrix[0][0] / tmp_vert.z, 0, 320.0 * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
-                    0, -320.0 * projMatrix[1][1] / tmp_vert.z, 320.0 * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
+                    0, -240.0 * projMatrix[1][1] / tmp_vert.z, 240.0 * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
             );
 
             float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f - grey_colors[id];

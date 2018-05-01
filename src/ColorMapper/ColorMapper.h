@@ -20,8 +20,8 @@ struct MapUnit {
         auto temp = cv::imread(path + key + ".jpg");
         cv::flip(temp, color_image, 0);
         cv::cvtColor(color_image, grey_image, CV_BGR2GRAY);
-        cv::Scharr(grey_image, grad_x, -1, 1, 0);
-        cv::Scharr(grey_image, grad_y, -1, 0, 1);
+        cv::Scharr(grey_image, grad_x, -1, 0, 1);
+        cv::Scharr(grey_image, grad_y, -1, 1, 0);
 //        cv::imshow("window", grey_image);
 //        cv::waitKey(0);
     }
