@@ -78,6 +78,7 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 void ColorMapper::base_map(bool map_color) {
     const int SSAA = 2;
     const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
+    const int imageHalfWidth = 320, imageHalfHeight = 240;
 
     const glm::mat4 projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
 
@@ -182,10 +183,13 @@ void ColorMapper::base_map(bool map_color) {
             float pixel = screenshot_data.at<float>(cy, cx);
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.000001) continue;
+
+            float eyeVis = glm::dot(glm::mat3(mapper.transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f));
+            if (eyeVis < 0.6) continue;
 //            printf("%f %f\n", pixel, z);
             if (std::fabs(pixel - z) < 0.00002f) {
-                cx = (vert.x + 1) * 320;
-                cy = (vert.y + 1) * 240;
+                cx = (vert.x + 1) * imageHalfWidth;
+                cy = (vert.y + 1) * imageHalfHeight;
 
                 float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f;
 //                if (i == 5) {
@@ -269,12 +273,12 @@ void ColorMapper::base_map(bool map_color) {
 
             if (vert.x < -1 || vert.x >= 1 || vert.y < -1 || vert.y >= 1) { continue; }
 
-            cx = (vert.x + 1) * 320;
-            cy = (vert.y + 1) * 240;
+            cx = (vert.x + 1) * imageHalfWidth;
+            cy = (vert.y + 1) * imageHalfHeight;
 
             Ju = (cv::Mat_<float>(2, 4) <<
-                    -320.0 * projMatrix[0][0] / tmp_vert.z, 0, 320.0 * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
-                    0, -240.0 * projMatrix[1][1] / tmp_vert.z, 240.0 * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
+                    -imageHalfWidth * projMatrix[0][0] / tmp_vert.z, 0, imageHalfWidth * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
+                    0, -imageHalfHeight * projMatrix[1][1] / tmp_vert.z, imageHalfHeight * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
             );
 
             float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f - grey_colors[id];
