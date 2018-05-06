@@ -50,6 +50,8 @@ private:
 
     std::vector<MapUnit> map_units;
     std::vector<GLfloat> grey_colors;
+    std::vector<float> best_views;
+    void select_best_view();
 };
 
 
