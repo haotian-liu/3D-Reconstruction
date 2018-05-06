@@ -11,7 +11,6 @@ void ColorMapper::map_color() {
     load_images();
     int iterations = 1;
     for (int i=0; i<iterations; i++) {
-        select_best_view();
         base_map(i + 1 == iterations);
         fprintf(stdout, "\n[LOG] Iteration %d finished.\n", i + 1);
     }
@@ -20,7 +19,7 @@ void ColorMapper::map_color() {
 void ColorMapper::load_keyframes() {
     map_units.clear();
 
-    const std::string path_folder = "output/1525160250/";
+    const std::string path_folder = "output/1525579641/";
     const std::string path_file = "pose.log";
     std::fstream keyFrameFile(path_folder + path_file);
 
@@ -126,6 +125,55 @@ void ColorMapper::base_map(bool map_color) {
 
     cv::Mat screenshot_data;
     auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
+
+
+    best_views.clear();
+    best_views.resize(shape->vertices.size(), -1.f);
+
+
+
+
+    for (auto &mapper : map_units) {
+        mapper.vertices.clear();
+        glm::mat4 transform = projMatrix * mapper.transform;
+        glm::vec4 vert;
+        int cx, cy;
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+
+        glBindVertexArray(vao);
+        glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
+        shader.Deactivate();
+
+        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
+
+        for (int i=0; i<shape->vertices.size(); i++) {
+            vert = transform * glm::vec4(shape->vertices[i], 1.f);
+            vert /= vert.w;
+            GLfloat z = .5f + vert.z / 2.f;
+            cx = (vert.x + 1) * frameWidth / 2;
+            cy = (vert.y + 1) * frameHeight / 2;
+
+            if (cx < 3 || cx + 3 > frameWidth || cy < 3 || cy + 3 > frameHeight) {
+                continue;
+            }
+
+            float pixel = screenshot_data.at<float>(cy, cx);
+            if (!(z < pixel + 0.000001f)) continue;
+
+            float eyeVis = glm::dot(glm::mat3(mapper.transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f));
+            if (best_views[i] < eyeVis) best_views[i] = eyeVis;
+        }
+    }
+
+    // test visibility
+
+
+
 
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
@@ -337,121 +385,4 @@ void ColorMapper::base_map(bool map_color) {
 
         mapper.transform = kx * mapper.transform;
     }
-}
-
-void ColorMapper::select_best_view() {
-    const int SSAA = 2;
-    const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
-    const int imageHalfWidth = 640, imageHalfHeight = 480;
-
-    const glm::mat4 projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
-
-    GLuint fbo, rbo, vao, vbo[2];
-    ShaderProgram shader;
-    compileShader(&shader, "shader/depth.vert", "shader/depth.frag");
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(2, vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * shape->vertices.size(), &shape->vertices[0], GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * shape->faces.size(), &shape->faces[0], GL_STATIC_DRAW);
-    glBindVertexArray(0);
-
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
-//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if(status != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "INCOMPLETE FBO\n");
-        exit(-1);
-    }
-
-    glDrawBuffer(GL_NONE);
-
-    glClearColor(1.f, 1.f, 1.f, 1.f);
-    glClearDepth(1.f);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-
-    glViewport(0, 0, frameWidth, frameHeight);
-
-    cv::Mat screenshot_data;
-    auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
-
-    best_views.clear();
-    best_views.resize(shape->vertices.size(), -1.f);
-
-    for (auto &mapper : map_units) {
-        mapper.vertices.clear();
-        glm::mat4 transform = projMatrix * mapper.transform;
-        glm::vec4 vert;
-        int cx, cy;
-
-        glClear(GL_DEPTH_BUFFER_BIT);
-
-        shader.Activate();
-        glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
-
-        glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
-        shader.Deactivate();
-
-        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
-        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
-
-        cv::Mat gray = screenshot_data, grad, grad_x, grad_y, kernel;
-
-        kernel = (cv::Mat_<int>(3, 3) << 0, -1, 0, 0, 2, 0, 0, -1, 0);
-        cv::filter2D(gray, grad_x, -1, kernel);
-        grad_x = cv::abs(grad_x);
-
-        kernel = (cv::Mat_<int>(3, 3) << 0, 0, 0, -1, 2, -1, 0, 0, 0);
-        cv::filter2D(gray, grad_y, -1, kernel);
-        grad_y = cv::abs(grad_y);
-
-        cv::addWeighted(grad_x, 0.5, grad_y, 0.5, 0, grad);
-
-        for (int i=0; i<shape->vertices.size(); i++) {
-            vert = transform * glm::vec4(shape->vertices[i], 1.f);
-            vert /= vert.w;
-            GLfloat z = .5f + vert.z / 2.f;
-            cx = (vert.x + 1) * frameWidth / 2;
-            cy = (vert.y + 1) * frameHeight / 2;
-
-            if (cx < 3 || cx + 3 > frameWidth || cy < 3 || cy + 3 > frameHeight) {
-                continue;
-            }
-
-            float pixel = screenshot_data.at<float>(cy, cx);
-            float gradient = grad.at<float>(cy, cx);
-            if (gradient > 0.000001) continue;
-            if (!(z < pixel + 0.000001f)) continue;
-
-            float eyeVis = glm::dot(glm::mat3(mapper.transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f));
-            if (best_views[i] < eyeVis) best_views[i] = eyeVis;
-        }
-    }
-
-    ///////////////////////////////////////
-
-    delete[]screenshot_raw;
-    glDeleteBuffers(2, vbo);
-    glDeleteVertexArrays(1, &vao);
-    glDeleteRenderbuffers(1, &rbo);
-    glDeleteFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glDisable(GL_CULL_FACE);
 }

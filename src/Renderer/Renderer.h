@@ -41,6 +41,7 @@ private:
     bool processPolygon();
 
     glm::vec3 viewDirection = glm::vec3(1.f, 0.f, 0.f), lightDirection;
+    glm::vec3 centerPoint = glm::vec3(0.f);
 
     ShaderProgram *shader;
     GLuint mVao, mVbo[5];

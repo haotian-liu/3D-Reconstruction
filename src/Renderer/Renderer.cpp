@@ -82,6 +82,19 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     static auto folder = boost::lexical_cast<std::string>(start_timestamp);
     static auto dir = "output/" + folder;
     static bool dirCreated = false;
+
+    if (action != GLFW_RELEASE) {
+        switch (key) {
+            case GLFW_KEY_UP: centerPoint.y += 0.01; break;
+            case GLFW_KEY_DOWN: centerPoint.y -= 0.01; break;
+            case GLFW_KEY_LEFT: centerPoint.x -= 0.01; break;
+            case GLFW_KEY_RIGHT: centerPoint.x += 0.01; break;
+
+            case GLFW_KEY_I: Dist /= 1.01; break;
+            case GLFW_KEY_J: Dist *= 1.01; break;
+        }
+    }
+
     if (key == GLFW_KEY_S && action != GLFW_RELEASE) {
         if (!dirCreated) {
             dirCreated = true;
@@ -128,7 +141,7 @@ void Renderer::updateCamera() {
     viewMatrix = glm::lookAt(
             viewDirection * Dist - shape.offset,
 //            glm::vec3(0.f, 0.f, 0.f),
-            -shape.offset,
+            centerPoint - shape.offset,
             glm::mat3(viewTransform) * glm::vec3(0.f, 1.f, 0.f)
     );
 }
