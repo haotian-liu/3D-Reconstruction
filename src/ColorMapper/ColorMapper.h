@@ -23,6 +23,8 @@ struct MapUnit {
         cv::cvtColor(color_image, grey_image, CV_BGR2GRAY);
         cv::Scharr(grey_image, grad_x, -1, 0, 1);
         cv::Scharr(grey_image, grad_y, -1, 1, 0);
+        cv::normalize(grad_x, grad_x, 0, 1, cv::NORM_MINMAX);
+        cv::normalize(grad_y, grad_y, 0, 1, cv::NORM_MINMAX);
 //        cv::imshow("window", grey_image);
 //        cv::waitKey(0);
     }

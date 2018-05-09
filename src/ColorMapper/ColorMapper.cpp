@@ -39,7 +39,7 @@ void ColorMapper::load_keyframes() {
             for (int j=0; j<4; j++) {
                 keyFrameFile >> transform[j][i];
                 rand = dist(rng);
-//                if (i != 3) transform[j][i] *= rand;
+                if (i != 3) transform[j][i] *= rand;
                 rand -= 1.0;
                 error += rand * rand;
             }
