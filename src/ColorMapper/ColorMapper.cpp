@@ -28,7 +28,8 @@ void ColorMapper::load_keyframes() {
 
     std::random_device rd;
     std::mt19937 rng(rd());
-    std::uniform_real_distribution<> dist(0.99, 1.01);
+    double delta = 0.005;
+    std::uniform_real_distribution<> dist(1.0 - delta, 1.0 + delta);
 
     double rand, error = 0;
 
@@ -127,6 +128,9 @@ void ColorMapper::base_map(bool map_color) {
     auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
 
 
+    if (!best_views.empty()) goto skip_best_view;
+
+
     best_views.clear();
     best_views.resize(shape->vertices.size(), -1.f);
 
@@ -170,6 +174,7 @@ void ColorMapper::base_map(bool map_color) {
         }
     }
 
+    skip_best_view:
     // test visibility
 
 
@@ -241,7 +246,8 @@ void ColorMapper::base_map(bool map_color) {
                 cx = (vert.x + 1) * imageHalfWidth;
                 cy = (vert.y + 1) * imageHalfHeight;
 
-                float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f;
+//                float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f;
+                float pixel = mapper.grey_image.at<float>(cy, cx);
 //                if (i == 5) {
 //                    printf("%f %f %d", pixel, grey_colors[i], mapped_count[i]);
 //                    getchar();
@@ -256,13 +262,13 @@ void ColorMapper::base_map(bool map_color) {
 //                }
 
                 if (map_color) {
-                    cv::Vec3b pixel_c = mapper.color_image.at<cv::Vec3b>(cy, cx);
+                    cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
                     shape->colors[i] *= mapped_count[i];
                     shape->colors[i] += glm::vec4(
 //                        1.f, 0.f, 0.f,
-                            pixel_c.val[2] / 255.f,
-                            pixel_c.val[1] / 255.f,
-                            pixel_c.val[0] / 255.f,
+                            pixel_c.val[2],
+                            pixel_c.val[1],
+                            pixel_c.val[0],
                             1.f
                     );
                     shape->colors[i] /= (mapped_count[i] + 1);
@@ -330,22 +336,34 @@ void ColorMapper::base_map(bool map_color) {
                     -imageHalfWidth * projMatrix[0][0] / tmp_vert.z, 0, imageHalfWidth * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
                     0, -imageHalfHeight * projMatrix[1][1] / tmp_vert.z, imageHalfHeight * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
             );
-
-            float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f - grey_colors[id];
+//
+//            float fx = 1050, fy = 1050;
+//            Ju = (cv::Mat_<float>(2, 4) <<
+//                    fx / tmp_vert.z, 0, -tmp_vert.x * fx / tmp_vert.z / tmp_vert.z, 0,
+//                    0, fy / tmp_vert.z, -tmp_vert.y * fy / tmp_vert.z / tmp_vert.z, 0
+//            );
+//            float pixel = grey_colors[id] - mapper.grey_image.at<uchar>(cy, cx) / 255.f;
+            float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 //            printf("%f - %f = %f", mapper.grey_image.at<uchar>(cy, cx) / 255.f, grey_colors[id], pixel);getchar();
 
             J_Gamma = (cv::Mat_<float>(1, 2) <<
-                    mapper.grad_x.at<uchar>(cy, cx) / 255.0,
-                    mapper.grad_y.at<uchar>(cy, cx) / 255.0
+//                    mapper.grad_x.at<uchar>(cy, cx) / 255.0,
+//                    mapper.grad_y.at<uchar>(cy, cx) / 255.0
+                    mapper.grad_x.at<float>(cy, cx),
+                    mapper.grad_y.at<float>(cy, cx)
             );
 
             _Jr = -J_Gamma * Ju * Jg;
 
-//            std::cout
+            std::cout
 //                    << Ju << std::endl
 //                    << Jg << std::endl
-//                    << J_Gamma << std::endl;
-//                    << _Jr << std::endl;
+//                    << J_Gamma << std::endl
+//                    << pixel << std::endl
+//                    << _Jr << std::endl
+                    ;
+
+//            getchar();
             Jr.push_back(_Jr);
             r.push_back(pixel);
         }
@@ -356,10 +374,12 @@ void ColorMapper::base_map(bool map_color) {
         src2 = JrT * -r;
         cv::solve(src1, src2, deltaX);
 
-//        std::cout << src1 << std::endl
-//                  << src2 << std::endl
-//                  << deltaX << std::endl;
-        std::cout << deltaX << std::endl;
+        std::cout
+//                << src1 << std::endl
+//                << src2 << std::endl
+                << deltaX << std::endl
+                ;
+//        getchar();
 
         float alpha_i = deltaX.at<float>(0, 0);
         float beta_i = deltaX.at<float>(1, 0);
