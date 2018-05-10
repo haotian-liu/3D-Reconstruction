@@ -62,55 +62,10 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 }
 
 void ColorMapper::base_map(bool map_color) {
-    const int SSAA = 2;
-    const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
-    const int imageHalfWidth = 320, imageHalfHeight = 240;
-
-    const glm::mat4 projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
-
-    GLuint fbo, rbo, vao, vbo[2];
-    ShaderProgram shader;
-    compileShader(&shader, "shader/depth.vert", "shader/depth.frag");
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(2, vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * shape->vertices.size(), &shape->vertices[0], GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * shape->faces.size(), &shape->faces[0], GL_STATIC_DRAW);
-    glBindVertexArray(0);
-
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
-//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if(status != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "INCOMPLETE FBO\n");
-        exit(-1);
-    }
-
-    glDrawBuffer(GL_NONE);
-
-    glClearColor(1.f, 1.f, 1.f, 1.f);
-    glClearDepth(1.f);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-//    glEnable(GL_CULL_FACE);
-//    glCullFace(GL_BACK);
-
-    glViewport(0, 0, frameWidth, frameHeight);
-
+    GLUnit u;
+    prepare_OGL(u);
     cv::Mat screenshot_data;
-    auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
+    auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
 
     if (!best_views.empty()) goto skip_best_view;
 
@@ -125,15 +80,15 @@ void ColorMapper::base_map(bool map_color) {
 
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        shader.Activate();
-        glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+        u.shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(u.shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
 
-        glBindVertexArray(vao);
+        glBindVertexArray(u.vao);
         glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
-        shader.Deactivate();
+        u.shader.Deactivate();
 
-        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
-        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
+        glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
 
         const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         glm::vec4 g;
@@ -142,10 +97,10 @@ void ColorMapper::base_map(bool map_color) {
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
             g = vert;
             GLfloat z = .75f + vert.z / 8.f;
-            cx = SSAA * (g.x * f.x / g.z + c.x);
-            cy = SSAA * (g.y * f.y / g.z + c.y);
+            cx = u.SSAA * (g.x * f.x / g.z + c.x);
+            cy = u.SSAA * (g.y * f.y / g.z + c.y);
 
-            if (cx < 3 || cx + 3 > frameWidth || cy < 3 || cy + 3 > frameHeight) {
+            if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
                 continue;
             }
 
@@ -175,15 +130,15 @@ skip_best_view:
 
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        shader.Activate();
-        glUniformMatrix4fv(glGetUniformLocation(shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+        u.shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(u.shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
 
-        glBindVertexArray(vao);
+        glBindVertexArray(u.vao);
         glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
-        shader.Deactivate();
+        u.shader.Deactivate();
 
-        glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
-        screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
+        glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
 
         cv::Mat gray, grad, grad_x, grad_y;
         cv::normalize(screenshot_data, gray, 0, 1, cv::NORM_MINMAX);
@@ -204,10 +159,10 @@ skip_best_view:
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
             g = vert;
             GLfloat z = .75f + vert.z / 8.f;
-            cx = SSAA * (g.x * f.x / g.z + c.x);
-            cy = SSAA * (g.y * f.y / g.z + c.y);
+            cx = u.SSAA * (g.x * f.x / g.z + c.x);
+            cy = u.SSAA * (g.y * f.y / g.z + c.y);
 
-            if (cx < 3 || cx + 3 > frameWidth || cy < 3 || cy + 3 > frameHeight) {
+            if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
                 continue;
             }
 
@@ -248,19 +203,63 @@ skip_best_view:
 
     delete[]mapped_count;
     delete[]screenshot_raw;
-    glDeleteBuffers(2, vbo);
-    glDeleteVertexArrays(1, &vao);
-    glDeleteRenderbuffers(1, &rbo);
-    glDeleteFramebuffers(1, &fbo);
+    destroy_OGL(u);
+    if (map_color) { return; }
+    optimize_pose(u);
+}
+
+void ColorMapper::prepare_OGL(GLUnit &u) {
+    compileShader(&u.shader, "shader/depth.vert", "shader/depth.frag");
+
+    glGenVertexArrays(1, &u.vao);
+    glBindVertexArray(u.vao);
+    glGenBuffers(2, u.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, u.vbo[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * shape->vertices.size(), &shape->vertices[0], GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, u.vbo[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * shape->faces.size(), &shape->faces[0], GL_STATIC_DRAW);
+    glBindVertexArray(0);
+
+    glGenFramebuffers(1, &u.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, u.fbo);
+    glGenRenderbuffers(1, &u.rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, u.rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, u.frameWidth, u.frameHeight);
+//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, u.rbo);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(status != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "INCOMPLETE FBO\n");
+        exit(-1);
+    }
+
+    glDrawBuffer(GL_NONE);
+
+    glClearColor(1.f, 1.f, 1.f, 1.f);
+    glClearDepth(1.f);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
+
+    glViewport(0, 0, u.frameWidth, u.frameHeight);
+}
+
+void ColorMapper::destroy_OGL(GLUnit &u) {
+    glDeleteBuffers(2, u.vbo);
+    glDeleteVertexArrays(1, &u.vao);
+    glDeleteRenderbuffers(1, &u.rbo);
+    glDeleteFramebuffers(1, &u.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glDisable(GL_CULL_FACE);
+}
 
-    if (map_color) { return; }
-
-    ///////////////////////////////////////
-    ////////// Optimize camera Pose ///////
-
+void ColorMapper::optimize_pose(GLUnit &u) {
     for (auto &mapper : map_units) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 vert;
@@ -287,7 +286,7 @@ skip_best_view:
             cx = g.x * f.x / g.z + c.x;
             cy = g.y * f.y / g.z + c.y;
 
-            if (cx < 3 || cx + 3 > frameWidth / SSAA || cy < 3 || cy + 3 > frameHeight / SSAA) {
+            if (cx < 3 || cx + 3 > u.frameWidth / u.SSAA || cy < 3 || cy + 3 > u.frameHeight / u.SSAA) {
                 continue;
             }
 

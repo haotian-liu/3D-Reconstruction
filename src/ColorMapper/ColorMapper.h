@@ -33,6 +33,14 @@ struct MapUnit {
     cv::Mat grey_image;
     cv::Mat grad_x, grad_y;
 };
+struct GLUnit {
+    const int SSAA = 2;
+    const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
+    const int imageHalfWidth = 320, imageHalfHeight = 240;
+
+    GLuint fbo, rbo, vao, vbo[2];
+    ShaderProgram shader;
+};
 
 class ColorMapper {
 public:
@@ -45,6 +53,10 @@ private:
     void load_keyframes();
     void load_images();
     void base_map(bool map_color = true);
+
+    void prepare_OGL(GLUnit &u);
+    void destroy_OGL(GLUnit &u);
+    void optimize_pose(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     Shape *shape = nullptr;
 
