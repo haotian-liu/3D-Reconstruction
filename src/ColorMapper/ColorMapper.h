@@ -52,12 +52,13 @@ public:
 private:
     void load_keyframes();
     void load_images();
-    void base_map(bool map_color = true);
+    void base_map();
 
     void prepare_OGL(GLUnit &u);
     void destroy_OGL(GLUnit &u);
     void register_views(GLUnit &u);
     void register_vertices(GLUnit &u);
+    void color_vertices(bool need_color);
     void optimize_pose(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     Shape *shape = nullptr;

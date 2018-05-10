@@ -8,11 +8,7 @@
 void ColorMapper::map_color() {
     load_keyframes();
     load_images();
-    int iterations = 5;
-    for (int i=0; i<iterations; i++) {
-        base_map(i + 1 == iterations);
-        fprintf(stdout, "\n[LOG] Iteration %d finished.\n", i + 1);
-    }
+    base_map();
 }
 
 void ColorMapper::load_keyframes() {
@@ -61,15 +57,21 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
     return shader->Link();
 }
 
-void ColorMapper::base_map(bool map_color) {
+void ColorMapper::base_map() {
     GLUnit u;
     prepare_OGL(u);
     register_views(u);
     register_vertices(u);
-    destroy_OGL(u);
 
-    if (map_color) { return; }
-    optimize_pose(u);
+    printf("\n[LOG] vertices registered.");
+
+    int iterations = 5;
+    for (int i=0; i<iterations; i++) {
+        color_vertices(i + 1 == iterations);
+        optimize_pose(u);
+        printf("\n[LOG] Iteration %d finished.\n", i + 1);
+    }
+    destroy_OGL(u);
 }
 
 void ColorMapper::prepare_OGL(GLUnit &u) {
@@ -176,25 +178,20 @@ void ColorMapper::register_views(GLUnit &u) {
 void ColorMapper::register_vertices(GLUnit &u) {
     cv::Mat screenshot_data;
     auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
-    auto mapped_count = new int[shape->vertices.size()];
-    memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
-
-    std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
-
-    grey_colors.clear();
-    grey_colors.resize(shape->vertices.size());
 
     for (auto &mapper : map_units) {
-        mapper.vertices.clear();
+        cv::Mat grad;
         glm::mat4 transform = glm::inverse(mapper.transform);
-        glm::vec4 vert;
+        glm::mat3 transform3(transform);
+        glm::vec4 g;
+        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         int cx, cy;
 
-        glClear(GL_DEPTH_BUFFER_BIT);
+        mapper.vertices.clear();
 
+        glClear(GL_DEPTH_BUFFER_BIT);
         u.shader.Activate();
         glUniformMatrix4fv(glGetUniformLocation(u.shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
-
         glBindVertexArray(u.vao);
         glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
         u.shader.Deactivate();
@@ -202,25 +199,24 @@ void ColorMapper::register_vertices(GLUnit &u) {
         glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
         screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
 
-        cv::Mat gray, grad, grad_x, grad_y;
-        cv::normalize(screenshot_data, gray, 0, 1, cv::NORM_MINMAX);
-        gray.convertTo(gray, CV_32F, 1.f, 0);
+        // Calculate gradient
+        {
+            cv::Mat gray, grad_x, grad_y;
+            cv::normalize(screenshot_data, gray, 0, 1, cv::NORM_MINMAX);
+            gray.convertTo(gray, CV_32F, 1.f, 0);
 
-        cv::Scharr(gray, grad_x, -1, 0, 1);
-        grad_x = cv::abs(grad_x);
+            cv::Scharr(gray, grad_x, -1, 0, 1);
+            grad_x = cv::abs(grad_x);
 
-        cv::Scharr(gray, grad_y, -1, 1, 0);
-        grad_y = cv::abs(grad_y);
+            cv::Scharr(gray, grad_y, -1, 1, 0);
+            grad_y = cv::abs(grad_y);
 
-        cv::addWeighted(grad_x, 0.5, grad_y, 0.5, 0, grad);
-
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
-        glm::vec4 g;
+            cv::addWeighted(grad_x, 0.5, grad_y, 0.5, 0, grad);
+        }
 
         for (int i=0; i<shape->vertices.size(); i++) {
-            vert = transform * glm::vec4(shape->vertices[i], 1.f);
-            g = vert;
-            GLfloat z = .75f + vert.z / 8.f;
+            g = transform * glm::vec4(shape->vertices[i], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
             cx = u.SSAA * (g.x * f.x / g.z + c.x);
             cy = u.SSAA * (g.y * f.y / g.z + c.y);
 
@@ -232,36 +228,61 @@ void ColorMapper::register_vertices(GLUnit &u) {
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-            float eyeVis = std::fabs(glm::dot(glm::mat3(transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f)));
+            float eyeVis = std::fabs(glm::dot(transform3 * shape->normals[i], glm::vec3(0.f, 0.f, 1.f)));
             if (eyeVis < best_views[i] - 0.1f) continue;
             if (z < pixel + 0.0001f) {
-                cx = g.x * f.x / g.z + c.x;
-                cy = g.y * f.y / g.z + c.y;
-
-                float pixel = mapper.grey_image.at<float>(cy, cx);
-                grey_colors[i] *= mapped_count[i];
-                grey_colors[i] += pixel;
-                grey_colors[i] /= (mapped_count[i] + 1);
-
-                if (true) {
-                    cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
-                    shape->colors[i] *= mapped_count[i];
-                    shape->colors[i] += glm::vec4(
-                            pixel_c.val[2],
-                            pixel_c.val[1],
-                            pixel_c.val[0],
-                            1.f
-                    );
-                    shape->colors[i] /= (mapped_count[i] + 1);
-                }
-
-                mapped_count[i]++;
                 mapper.vertices.push_back(i);
             }
         }
     }
-    delete[]mapped_count;
     delete[]screenshot_raw;
+}
+
+void ColorMapper::color_vertices(bool need_color) {
+    auto mapped_count = new int[shape->vertices.size()];
+    memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
+
+    std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
+
+    grey_colors.clear();
+    grey_colors.resize(shape->vertices.size());
+
+    for (auto &mapper : map_units) {
+        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::vec4 g;
+        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
+        int cx, cy;
+        GLuint id;
+
+        for (int i=0; i<mapper.vertices.size(); i++) {
+            id = mapper.vertices[i];
+            g = transform * glm::vec4(shape->vertices[id], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
+
+            cx = g.x * f.x / g.z + c.x;
+            cy = g.y * f.y / g.z + c.y;
+
+            float pixel = mapper.grey_image.at<float>(cy, cx);
+            grey_colors[id] *= mapped_count[id];
+            grey_colors[id] += pixel;
+            grey_colors[id] /= (mapped_count[id] + 1);
+
+            if (need_color) {
+                cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
+                shape->colors[id] *= mapped_count[id];
+                shape->colors[id] += glm::vec4(
+                        pixel_c.val[2],
+                        pixel_c.val[1],
+                        pixel_c.val[0],
+                        1.f
+                );
+                shape->colors[id] /= (mapped_count[id] + 1);
+            }
+
+            mapped_count[id]++;
+        }
+    }
+    delete[]mapped_count;
 }
 
 void ColorMapper::optimize_pose(GLUnit &u) {
