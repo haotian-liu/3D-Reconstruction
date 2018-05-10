@@ -18,8 +18,7 @@ struct MapUnit {
 
     void load_image() {
         auto temp = cv::imread(path + key + ".jpg");
-        temp.convertTo(temp, CV_32F, 1.f / 255, 0);
-        cv::flip(temp, color_image, 0);
+        temp.convertTo(color_image, CV_32F, 1.f / 255, 0);
         cv::cvtColor(color_image, grey_image, CV_BGR2GRAY);
         cv::Scharr(grey_image, grad_x, -1, 0, 1);
         cv::Scharr(grey_image, grad_y, -1, 1, 0);
