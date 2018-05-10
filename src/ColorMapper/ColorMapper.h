@@ -35,7 +35,8 @@ struct MapUnit {
 };
 struct GLUnit {
     const int SSAA = 2;
-    const int frameWidth = 1280 * SSAA, frameHeight = 1024 * SSAA;
+    const int GLWidth = 1280, GLHeight = 1024;
+    const int frameWidth = GLWidth * SSAA, frameHeight = GLHeight * SSAA;
     const glm::vec2 f = glm::vec2(1050.f, 1050.f), c = glm::vec2(639.5f, 511.5f);
 
     GLuint fbo, rbo, vao, vbo[2];

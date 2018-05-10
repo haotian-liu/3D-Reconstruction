@@ -4,6 +4,12 @@
 
 #include "ColorMapper.h"
 #include <fstream>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Sparse>
+
+using Eigen::MatrixXf;
+using Eigen::VectorXf;
+using Eigen::SparseMatrix;
 
 void ColorMapper::map_color() {
     load_keyframes();
@@ -291,9 +297,9 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         glm::vec4 vert;
         int cx, cy;
 
-        cv::Mat Jr, r, deltaX;
-        cv::Mat _Jr;
-        cv::Mat J_Gamma, Ju, Jg;
+        MatrixXf Jg(4, 6), Ju(2, 4), J_Gamma(1, 2),
+                _Jr(1, 6), Jr(mapper.vertices.size(), 6);
+        VectorXf r(mapper.vertices.size());
         glm::vec4 g;
 
         for (int i=0; i<mapper.vertices.size(); i++) {
@@ -301,30 +307,26 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             g = transform * glm::vec4(shape->vertices[id], 1.f);
             GLfloat z = .75f + vert.z / 8.f;
 
-            Jg = (cv::Mat_<float>(4, 6) <<
+            Jg <<
                     0, g.z, -g.y, g.w, 0, 0,
                     -g.z, 0, g.x, 0, g.w, 0,
                     g.y, -g.x, 0, 0, 0, g.w,
                     0, 0, 0, 0, 0, 0
-            );
+            ;
 
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
 
-            if (cx < 3 || cx + 3 > u.frameWidth / u.SSAA || cy < 3 || cy + 3 > u.frameHeight / u.SSAA) {
-                continue;
-            }
-
-            Ju = (cv::Mat_<float>(2, 4) <<
+            Ju <<
                     u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
                     0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
-            );
+            ;
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 
-            J_Gamma = (cv::Mat_<float>(1, 2) <<
+            J_Gamma <<
                     mapper.grad_x.at<float>(cy, cx),
                     mapper.grad_y.at<float>(cy, cx)
-            );
+            ;
 
             _Jr = -J_Gamma * Ju * Jg;
 
@@ -336,29 +338,32 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
-            Jr.push_back(_Jr);
-            r.push_back(pixel);
+            Jr.row(i) = _Jr;
+            r(i) = pixel;
         }
 
-        cv::Mat JrT = Jr.t();
-        cv::Mat src1, src2;
+        MatrixXf JrT(6, mapper.vertices.size()), src1(6, 6);
+        VectorXf src2(6), deltaX(6);
+        JrT = Jr.transpose();
         src1 = JrT * Jr;
         src2 = JrT * -r;
-        cv::solve(src1, src2, deltaX);
+
+        deltaX = src1.ldlt().solve(src2);
+//        deltaX = Jr.colPivHouseholderQr().solve(-r);
 
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-                << deltaX << std::endl
+                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
-        float alpha_i = deltaX.at<float>(0, 0);
-        float beta_i = deltaX.at<float>(1, 0);
-        float gamma_i = deltaX.at<float>(2, 0);
-        float ai = deltaX.at<float>(3, 0);
-        float bi = deltaX.at<float>(4, 0);
-        float ci = deltaX.at<float>(5, 0);
+        float alpha_i = deltaX(0);
+        float beta_i = deltaX(1);
+        float gamma_i = deltaX(2);
+        float ai = deltaX(3);
+        float bi = deltaX(4);
+        float ci = deltaX(5);
 
         glm::mat4 kx(
                 glm::vec4(1.f, gamma_i, -beta_i, 0.f),
