@@ -112,9 +112,7 @@ void ColorMapper::base_map(bool map_color) {
     cv::Mat screenshot_data;
     auto screenshot_raw = new GLfloat[frameWidth * frameHeight];
 
-
     if (!best_views.empty()) goto skip_best_view;
-
 
     best_views.clear();
     best_views.resize(shape->vertices.size(), -1.f);
@@ -137,19 +135,13 @@ void ColorMapper::base_map(bool map_color) {
         glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
         screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
 
-//        cv::normalize(screenshot_data, screenshot_data, 0, 1, cv::NORM_MINMAX);
-//        cv::imshow("window", screenshot_data);
-//        cv::waitKey(0);
         const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         glm::vec4 g;
 
         for (int i=0; i<shape->vertices.size(); i++) {
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
             g = vert;
-//            vert /= vert.w;
             GLfloat z = .75f + vert.z / 8.f;
-//            cx = (vert.x + 1) * frameWidth / 2;
-//            cy = (vert.y + 1) * frameHeight / 2;
             cx = SSAA * (g.x * f.x / g.z + c.x);
             cy = SSAA * (g.y * f.y / g.z + c.y);
 
@@ -165,12 +157,8 @@ void ColorMapper::base_map(bool map_color) {
         }
     }
 
-    skip_best_view:
+skip_best_view:
     // test visibility
-
-
-
-
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
 
@@ -197,10 +185,6 @@ void ColorMapper::base_map(bool map_color) {
         glReadPixels(0, 0, frameWidth, frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
         screenshot_data = cv::Mat(frameHeight, frameWidth, CV_32F, screenshot_raw);
 
-//        cv::normalize(screenshot_data, screenshot_data, 0, 1, cv::NORM_MINMAX);
-//        cv::imshow("window", screenshot_data);
-//        cv::waitKey(0);
-
         cv::Mat gray, grad, grad_x, grad_y;
         cv::normalize(screenshot_data, gray, 0, 1, cv::NORM_MINMAX);
         gray.convertTo(gray, CV_32F, 1.f, 0);
@@ -217,17 +201,9 @@ void ColorMapper::base_map(bool map_color) {
         glm::vec4 g;
 
         for (int i=0; i<shape->vertices.size(); i++) {
-//            glm::vec4 tmp_vert = mapper.transform * glm::vec4(shape->vertices[i], 1.f);
-//            vert.x = -projMatrix[0][0] * tmp_vert.x / tmp_vert.z;
-//            vert.y = -projMatrix[1][1] * tmp_vert.y / tmp_vert.z;
-//            vert.z = -(projMatrix[2][2] * tmp_vert.z + projMatrix[3][2]) / tmp_vert.z;
-//            vert.w = projMatrix[2][3] * tmp_vert.z;
             vert = transform * glm::vec4(shape->vertices[i], 1.f);
             g = vert;
-//            vert /= vert.w;
             GLfloat z = .75f + vert.z / 8.f;
-//            cx = (vert.x + 1) * frameWidth / 2;
-//            cy = (vert.y + 1) * frameHeight / 2;
             cx = SSAA * (g.x * f.x / g.z + c.x);
             cy = SSAA * (g.y * f.y / g.z + c.y);
 
@@ -238,34 +214,22 @@ void ColorMapper::base_map(bool map_color) {
             float pixel = screenshot_data.at<float>(cy, cx);
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
-//
+
             float eyeVis = std::fabs(glm::dot(glm::mat3(transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f)));
             if (eyeVis < best_views[i] - 0.1f) continue;
-//            if (std::fabs(pixel - z) < 0.00002f) {
             if (z < pixel + 0.0001f) {
                 cx = g.x * f.x / g.z + c.x;
                 cy = g.y * f.y / g.z + c.y;
 
-//                float pixel = mapper.grey_image.at<uchar>(cy, cx) / 255.f;
                 float pixel = mapper.grey_image.at<float>(cy, cx);
-//                if (i == 5) {
-//                    printf("%f %f %d", pixel, grey_colors[i], mapped_count[i]);
-//                    getchar();
-//                }
                 grey_colors[i] *= mapped_count[i];
                 grey_colors[i] += pixel;
                 grey_colors[i] /= (mapped_count[i] + 1);
-
-//                if (i == 5) {
-//                    printf("%f %f %d", pixel, grey_colors[i], mapped_count[i]);
-//                    getchar();
-//                }
 
                 if (map_color) {
                     cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
                     shape->colors[i] *= mapped_count[i];
                     shape->colors[i] += glm::vec4(
-//                        1.f, 0.f, 0.f,
                             pixel_c.val[2],
                             pixel_c.val[1],
                             pixel_c.val[0],
@@ -302,11 +266,6 @@ void ColorMapper::base_map(bool map_color) {
         glm::vec4 vert;
         int cx, cy;
 
-//        cv::imshow("grad_x", grad_x);
-//        cv::waitKey(0);
-//        cv::imshow("grad_y", grad_y);
-//        cv::waitKey(0);
-
         cv::Mat Jr, r, deltaX;
         cv::Mat _Jr;
         cv::Mat J_Gamma, Ju, Jg;
@@ -316,10 +275,7 @@ void ColorMapper::base_map(bool map_color) {
         for (int i=0; i<mapper.vertices.size(); i++) {
             GLuint id = mapper.vertices[i];
             g = transform * glm::vec4(shape->vertices[id], 1.f);
-//            vert /= vert.w;
             GLfloat z = .75f + vert.z / 8.f;
-//            cx = (vert.x + 1) * frameWidth / 2;
-//            cy = (vert.y + 1) * frameHeight / 2;
 
             Jg = (cv::Mat_<float>(4, 6) <<
                     0, g.z, -g.y, g.w, 0, 0,
@@ -335,22 +291,13 @@ void ColorMapper::base_map(bool map_color) {
                 continue;
             }
 
-//            Ju = (cv::Mat_<float>(2, 4) <<
-//                    -imageHalfWidth * projMatrix[0][0] / tmp_vert.z, 0, imageHalfWidth * projMatrix[0][0] * (1.0 + tmp_vert.x) / tmp_vert.z / tmp_vert.z, 0,
-//                    0, -imageHalfHeight * projMatrix[1][1] / tmp_vert.z, imageHalfHeight * projMatrix[1][1] * (1.0 + tmp_vert.y) / tmp_vert.z / tmp_vert.z, 0
-//            );
-//
             Ju = (cv::Mat_<float>(2, 4) <<
                     f.x / g.z, 0, -g.x * f.x / g.z / g.z, 0,
                     0, f.y / g.z, -g.y * f.y / g.z / g.z, 0
             );
-//            float pixel = grey_colors[id] - mapper.grey_image.at<uchar>(cy, cx) / 255.f;
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
-//            printf("%f - %f = %f", mapper.grey_image.at<uchar>(cy, cx) / 255.f, grey_colors[id], pixel);getchar();
 
             J_Gamma = (cv::Mat_<float>(1, 2) <<
-//                    mapper.grad_x.at<uchar>(cy, cx) / 255.0,
-//                    mapper.grad_y.at<uchar>(cy, cx) / 255.0
                     mapper.grad_x.at<float>(cy, cx),
                     mapper.grad_y.at<float>(cy, cx)
             );
@@ -364,7 +311,6 @@ void ColorMapper::base_map(bool map_color) {
 //                    << pixel << std::endl
 //                    << _Jr << std::endl
                     ;
-
 //            getchar();
             Jr.push_back(_Jr);
             r.push_back(pixel);
@@ -389,14 +335,6 @@ void ColorMapper::base_map(bool map_color) {
         float ai = deltaX.at<float>(3, 0);
         float bi = deltaX.at<float>(4, 0);
         float ci = deltaX.at<float>(5, 0);
-
-//        std::cout << alpha_i << " "
-//                  << beta_i << " "
-//                  << gamma_i << " "
-//                  << ai << " "
-//                  << bi << " "
-//                  << ci << " "
-//                  << std::endl;
 
         glm::mat4 kx(
                 glm::vec4(1.f, gamma_i, -beta_i, 0.f),
