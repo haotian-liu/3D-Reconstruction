@@ -36,7 +36,6 @@ struct MapUnit {
 struct GLUnit {
     const int SSAA = 2;
     const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
-    const int imageHalfWidth = 320, imageHalfHeight = 240;
 
     GLuint fbo, rbo, vao, vbo[2];
     ShaderProgram shader;

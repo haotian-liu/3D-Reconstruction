@@ -59,17 +59,23 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 
 void ColorMapper::base_map() {
     GLUnit u;
+    int iterations;
+    bool last_pass;
+    printf("Iteration count: ");
+    scanf("%d", &iterations);
+
     prepare_OGL(u);
     register_views(u);
     register_vertices(u);
-
     printf("\n[LOG] vertices registered.");
 
-    int iterations = 5;
     for (int i=0; i<iterations; i++) {
-        color_vertices(i + 1 == iterations);
-        optimize_pose(u);
-        printf("\n[LOG] Iteration %d finished.\n", i + 1);
+        last_pass = (i + 1 == iterations);
+        color_vertices(last_pass);
+        if (!last_pass) {
+            optimize_pose(u);
+            printf("\n[LOG] Iteration %d finished.\n", i + 1);
+        }
     }
     destroy_OGL(u);
 }
