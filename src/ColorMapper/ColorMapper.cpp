@@ -141,7 +141,8 @@ void ColorMapper::register_views(GLUnit &u) {
     for (auto &mapper : map_units) {
         mapper.vertices.clear();
         glm::mat4 transform = glm::inverse(mapper.transform);
-        glm::vec4 vert;
+        glm::vec4 g;
+        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         int cx, cy;
 
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -156,13 +157,9 @@ void ColorMapper::register_views(GLUnit &u) {
         glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
         screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
 
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
-        glm::vec4 g;
-
         for (int i=0; i<shape->vertices.size(); i++) {
-            vert = transform * glm::vec4(shape->vertices[i], 1.f);
-            g = vert;
-            GLfloat z = .75f + vert.z / 8.f;
+            g = transform * glm::vec4(shape->vertices[i], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
             cx = u.SSAA * (g.x * f.x / g.z + c.x);
             cy = u.SSAA * (g.y * f.y / g.z + c.y);
 
