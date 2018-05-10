@@ -71,7 +71,7 @@ void ColorMapper::base_map() {
 
     for (int i=0; i<iterations; i++) {
         last_pass = (i + 1 == iterations);
-        color_vertices(last_pass);
+        color_vertices(u, last_pass);
         if (!last_pass) {
             optimize_pose(u);
             printf("\n[LOG] Iteration %d finished.\n", i + 1);
@@ -142,7 +142,6 @@ void ColorMapper::register_views(GLUnit &u) {
         mapper.vertices.clear();
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 g;
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         int cx, cy;
 
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -160,8 +159,8 @@ void ColorMapper::register_views(GLUnit &u) {
         for (int i=0; i<shape->vertices.size(); i++) {
             g = transform * glm::vec4(shape->vertices[i], 1.f);
             GLfloat z = .75f + g.z / 8.f;
-            cx = u.SSAA * (g.x * f.x / g.z + c.x);
-            cy = u.SSAA * (g.y * f.y / g.z + c.y);
+            cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
+            cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
 
             if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
                 continue;
@@ -170,7 +169,7 @@ void ColorMapper::register_views(GLUnit &u) {
             float pixel = screenshot_data.at<float>(cy, cx);
             if (!(z < pixel + 0.0001f)) continue;
 
-            float eyeVis = std::fabs(glm::dot(glm::mat3(transform) * shape->normals[i], glm::vec3(0.f, 0.f, 1.f)));
+            float eyeVis = std::fabs(glm::dot(glm::normalize(glm::mat3(transform) * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
             if (best_views[i] < eyeVis) best_views[i] = eyeVis;
         }
     }
@@ -187,7 +186,6 @@ void ColorMapper::register_vertices(GLUnit &u) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::mat3 transform3(transform);
         glm::vec4 g;
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         int cx, cy;
 
         mapper.vertices.clear();
@@ -220,8 +218,8 @@ void ColorMapper::register_vertices(GLUnit &u) {
         for (int i=0; i<shape->vertices.size(); i++) {
             g = transform * glm::vec4(shape->vertices[i], 1.f);
             GLfloat z = .75f + g.z / 8.f;
-            cx = u.SSAA * (g.x * f.x / g.z + c.x);
-            cy = u.SSAA * (g.y * f.y / g.z + c.y);
+            cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
+            cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
 
             if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
                 continue;
@@ -231,7 +229,7 @@ void ColorMapper::register_vertices(GLUnit &u) {
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-            float eyeVis = std::fabs(glm::dot(transform3 * shape->normals[i], glm::vec3(0.f, 0.f, 1.f)));
+            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
             if (eyeVis < best_views[i] - 0.1f) continue;
             if (z < pixel + 0.0001f) {
                 mapper.vertices.push_back(i);
@@ -241,7 +239,7 @@ void ColorMapper::register_vertices(GLUnit &u) {
     delete[]screenshot_raw;
 }
 
-void ColorMapper::color_vertices(bool need_color) {
+void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
 
@@ -253,7 +251,6 @@ void ColorMapper::color_vertices(bool need_color) {
     for (auto &mapper : map_units) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 g;
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         int cx, cy;
         GLuint id;
 
@@ -262,8 +259,8 @@ void ColorMapper::color_vertices(bool need_color) {
             g = transform * glm::vec4(shape->vertices[id], 1.f);
             GLfloat z = .75f + g.z / 8.f;
 
-            cx = g.x * f.x / g.z + c.x;
-            cy = g.y * f.y / g.z + c.y;
+            cx = g.x * u.f.x / g.z + u.c.x;
+            cy = g.y * u.f.y / g.z + u.c.y;
 
             float pixel = mapper.grey_image.at<float>(cy, cx);
             grey_colors[id] *= mapped_count[id];
@@ -297,7 +294,6 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         cv::Mat Jr, r, deltaX;
         cv::Mat _Jr;
         cv::Mat J_Gamma, Ju, Jg;
-        const glm::vec2 f(525.f, 525.f), c(319.5f, 239.5f);
         glm::vec4 g;
 
         for (int i=0; i<mapper.vertices.size(); i++) {
@@ -312,16 +308,16 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                     0, 0, 0, 0, 0, 0
             );
 
-            cx = g.x * f.x / g.z + c.x;
-            cy = g.y * f.y / g.z + c.y;
+            cx = g.x * u.f.x / g.z + u.c.x;
+            cy = g.y * u.f.y / g.z + u.c.y;
 
             if (cx < 3 || cx + 3 > u.frameWidth / u.SSAA || cy < 3 || cy + 3 > u.frameHeight / u.SSAA) {
                 continue;
             }
 
             Ju = (cv::Mat_<float>(2, 4) <<
-                    f.x / g.z, 0, -g.x * f.x / g.z / g.z, 0,
-                    0, f.y / g.z, -g.y * f.y / g.z / g.z, 0
+                    u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
+                    0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
             );
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 

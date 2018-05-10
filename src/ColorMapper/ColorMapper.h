@@ -35,7 +35,8 @@ struct MapUnit {
 };
 struct GLUnit {
     const int SSAA = 2;
-    const int frameWidth = 640 * SSAA, frameHeight = 480 * SSAA;
+    const int frameWidth = 1280 * SSAA, frameHeight = 1024 * SSAA;
+    const glm::vec2 f = glm::vec2(1050.f, 1050.f), c = glm::vec2(639.5f, 511.5f);
 
     GLuint fbo, rbo, vao, vbo[2];
     ShaderProgram shader;
@@ -57,7 +58,7 @@ private:
     void destroy_OGL(GLUnit &u);
     void register_views(GLUnit &u);
     void register_vertices(GLUnit &u);
-    void color_vertices(bool need_color);
+    void color_vertices(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     Shape *shape = nullptr;
