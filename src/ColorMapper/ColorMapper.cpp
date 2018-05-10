@@ -64,10 +64,68 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 void ColorMapper::base_map(bool map_color) {
     GLUnit u;
     prepare_OGL(u);
+    register_views(u);
+    register_vertices(u);
+    destroy_OGL(u);
+
+    if (map_color) { return; }
+    optimize_pose(u);
+}
+
+void ColorMapper::prepare_OGL(GLUnit &u) {
+    compileShader(&u.shader, "shader/depth.vert", "shader/depth.frag");
+
+    glGenVertexArrays(1, &u.vao);
+    glBindVertexArray(u.vao);
+    glGenBuffers(2, u.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, u.vbo[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * shape->vertices.size(), &shape->vertices[0], GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, u.vbo[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * shape->faces.size(), &shape->faces[0], GL_STATIC_DRAW);
+    glBindVertexArray(0);
+
+    glGenFramebuffers(1, &u.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, u.fbo);
+    glGenRenderbuffers(1, &u.rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, u.rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, u.frameWidth, u.frameHeight);
+//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, u.rbo);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(status != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "INCOMPLETE FBO\n");
+        exit(-1);
+    }
+
+    glDrawBuffer(GL_NONE);
+
+    glClearColor(1.f, 1.f, 1.f, 1.f);
+    glClearDepth(1.f);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
+
+    glViewport(0, 0, u.frameWidth, u.frameHeight);
+}
+
+void ColorMapper::destroy_OGL(GLUnit &u) {
+    glDeleteBuffers(2, u.vbo);
+    glDeleteVertexArrays(1, &u.vao);
+    glDeleteRenderbuffers(1, &u.rbo);
+    glDeleteFramebuffers(1, &u.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_CULL_FACE);
+}
+
+void ColorMapper::register_views(GLUnit &u) {
     cv::Mat screenshot_data;
     auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
-
-    if (!best_views.empty()) goto skip_best_view;
 
     best_views.clear();
     best_views.resize(shape->vertices.size(), -1.f);
@@ -112,8 +170,12 @@ void ColorMapper::base_map(bool map_color) {
         }
     }
 
-skip_best_view:
-    // test visibility
+    delete []screenshot_raw;
+}
+
+void ColorMapper::register_vertices(GLUnit &u) {
+    cv::Mat screenshot_data;
+    auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
 
@@ -181,7 +243,7 @@ skip_best_view:
                 grey_colors[i] += pixel;
                 grey_colors[i] /= (mapped_count[i] + 1);
 
-                if (map_color) {
+                if (true) {
                     cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
                     shape->colors[i] *= mapped_count[i];
                     shape->colors[i] += glm::vec4(
@@ -198,65 +260,8 @@ skip_best_view:
             }
         }
     }
-
-    ///////////////////////////////////////
-
     delete[]mapped_count;
     delete[]screenshot_raw;
-    destroy_OGL(u);
-    if (map_color) { return; }
-    optimize_pose(u);
-}
-
-void ColorMapper::prepare_OGL(GLUnit &u) {
-    compileShader(&u.shader, "shader/depth.vert", "shader/depth.frag");
-
-    glGenVertexArrays(1, &u.vao);
-    glBindVertexArray(u.vao);
-    glGenBuffers(2, u.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, u.vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * shape->vertices.size(), &shape->vertices[0], GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, u.vbo[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * shape->faces.size(), &shape->faces[0], GL_STATIC_DRAW);
-    glBindVertexArray(0);
-
-    glGenFramebuffers(1, &u.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, u.fbo);
-    glGenRenderbuffers(1, &u.rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, u.rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, u.frameWidth, u.frameHeight);
-//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT32F, frameWidth, frameHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, u.rbo);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if(status != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "INCOMPLETE FBO\n");
-        exit(-1);
-    }
-
-    glDrawBuffer(GL_NONE);
-
-    glClearColor(1.f, 1.f, 1.f, 1.f);
-    glClearDepth(1.f);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-//    glEnable(GL_CULL_FACE);
-//    glCullFace(GL_BACK);
-
-    glViewport(0, 0, u.frameWidth, u.frameHeight);
-}
-
-void ColorMapper::destroy_OGL(GLUnit &u) {
-    glDeleteBuffers(2, u.vbo);
-    glDeleteVertexArrays(1, &u.vao);
-    glDeleteRenderbuffers(1, &u.rbo);
-    glDeleteFramebuffers(1, &u.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glDisable(GL_CULL_FACE);
 }
 
 void ColorMapper::optimize_pose(GLUnit &u) {
