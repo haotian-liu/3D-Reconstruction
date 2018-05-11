@@ -9,7 +9,11 @@
 
 using Eigen::MatrixXf;
 using Eigen::VectorXf;
+using Eigen::VectorXi;
 using Eigen::SparseMatrix;
+using Eigen::SparseVector;
+
+typedef Eigen::Triplet<float> Triplet;
 
 void ColorMapper::map_color() {
     load_keyframes();
@@ -297,8 +301,11 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         glm::vec4 vert;
         int cx, cy;
 
-        MatrixXf Jg(4, 6), Ju(2, 4), J_Gamma(1, 2),
+        MatrixXf Jg(4, 6), Ju(2, 4), J_F(2, 2), _J_F(2, 2), J_Gamma(1, 2),
                 _Jr(1, 6), Jr(mapper.vertices.size(), 6);
+        std::vector<Triplet> tripletList;
+        SparseMatrix<float, Eigen::RowMajor> S_Jr(mapper.vertices.size(), 720);
+        tripletList.reserve(mapper.vertices.size());
         VectorXf r(mapper.vertices.size());
         glm::vec4 g;
 
@@ -321,6 +328,46 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                     u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
                     0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
             ;
+
+            J_F.setIdentity();
+            int icx = cx / 64, icy = cy / 64;
+            glm::vec2 lerp = bilerp(
+                    mapper.control_vertices[icx][icy],
+                    mapper.control_vertices[icx+1][icy],
+                    mapper.control_vertices[icx][icy+1],
+                    mapper.control_vertices[icx+1][icy+1],
+                    cx, cy
+            );
+            glm::mat2 lerp_grad = bilerp_gradient(
+                    mapper.control_vertices[icx][icy],
+                    mapper.control_vertices[icx+1][icy],
+                    mapper.control_vertices[icx][icy+1],
+                    mapper.control_vertices[icx+1][icy+1],
+                    cx, cy
+            );
+            //
+
+            _J_F << lerp_grad[0][0], lerp_grad[0][1], lerp_grad[1][0], lerp_grad[1][1];
+            J_F += _J_F;
+
+
+            float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
+            int f1_id = icx * 17 + icy;
+            int f2_id = (1+icx) * 17 + icy;
+            int f3_id = icx * 17 + (1+icy);
+            int f4_id = (1+icx) * 17 + (1+icy);
+
+//            tripletList.push_back(Triplet(i, f1_id*2+6, (1-ccx)*(1-ccy) * mapper.control_vertices[icx][icy].x));
+//            tripletList.push_back(Triplet(i, f1_id*2+1+6, (1-ccx)*(1-ccy) * mapper.control_vertices[icx][icy].y));
+//            tripletList.push_back(Triplet(i, f2_id*2+6, ccx*(1-ccy) * mapper.control_vertices[icx+1][icy].x));
+//            tripletList.push_back(Triplet(i, f2_id*2+1+6, ccx*(1-ccy) * mapper.control_vertices[icx+1][icy].y));
+//            tripletList.push_back(Triplet(i, f3_id*2+6, (1-ccx)*ccy * mapper.control_vertices[icx][icy+1].x));
+//            tripletList.push_back(Triplet(i, f3_id*2+1+6, (1-ccx)*ccy * mapper.control_vertices[icx][icy+1].y));
+//            tripletList.push_back(Triplet(i, f4_id*2+6, ccx*ccy * mapper.control_vertices[icx+1][icy+1].x));
+//            tripletList.push_back(Triplet(i, f4_id*2+1+6, ccx*ccy * mapper.control_vertices[icx+1][icy+1].y));
+
+            cx = lerp.x;
+            cy = lerp.y;
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 
             J_Gamma <<
@@ -328,7 +375,23 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                     mapper.grad_y.at<float>(cy, cx)
             ;
 
-            _Jr = -J_Gamma * Ju * Jg;
+            _Jr = -J_Gamma * J_F * Ju * Jg;
+
+            tripletList.push_back(Triplet(i, 0, _Jr(0)));
+            tripletList.push_back(Triplet(i, 1, _Jr(1)));
+            tripletList.push_back(Triplet(i, 2, _Jr(2)));
+            tripletList.push_back(Triplet(i, 3, _Jr(3)));
+            tripletList.push_back(Triplet(i, 4, _Jr(4)));
+            tripletList.push_back(Triplet(i, 5, _Jr(5)));
+
+            tripletList.push_back(Triplet(i, f1_id*2+6, (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f1_id*2+1+6, (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f2_id*2+6, ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f2_id*2+1+6, ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f3_id*2+6, (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f3_id*2+1+6, (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f4_id*2+6, ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f4_id*2+1+6, ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
 
             std::cout
 //                    << Ju << std::endl
@@ -338,14 +401,19 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
-            Jr.row(i) = _Jr;
+//            S_Jr.row(i) = _Jr;
             r(i) = pixel;
         }
 
-        MatrixXf JrT(6, mapper.vertices.size()), src1(6, 6);
-        VectorXf src2(6), deltaX(6);
-        JrT = Jr.transpose();
-        src1 = JrT * Jr;
+        S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
+
+//        MatrixXf JrT(6, mapper.vertices.size()), src1(6, 6);
+//        VectorXf src2(6), deltaX(6);
+        MatrixXf src1(720, 720);
+        SparseMatrix<float> JrT;
+        VectorXf src2(720), deltaX(720);
+        JrT = S_Jr.transpose();
+        src1 = JrT * S_Jr;
         src2 = JrT * -r;
 
         deltaX = src1.ldlt().solve(src2);
@@ -374,4 +442,25 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
         mapper.transform = kx * mapper.transform;
     }
+}
+
+glm::vec2 ColorMapper::bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const {
+    float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
+    int icx = cx / 64, icy = cy / 64;
+    int rcx = icx * 64, rcy = icy * 64;
+    static const glm::vec2 vx(1.f, 0.f), vy(0.f, 1.f), vc(1.f, 1.f);
+
+    glm::vec2 adjust = (1-ccx)*(1-ccy) * v1 + ccx*(1-ccy) * (v2 + vx) + (1-ccx)*ccy * (v3 + vy) + ccx*ccy * (v4 + vc);
+
+    return adjust * 64.f + glm::vec2(rcx, rcy);
+}
+
+glm::mat2
+ColorMapper::bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx,
+                             int cy) const {
+    float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
+    return glm::mat2(
+            (ccy-1)*(v1-v2) + ccy*(v4-v3),
+            (ccx-1)*(v1-v3) + ccx*(v4-v2)
+    );
 }

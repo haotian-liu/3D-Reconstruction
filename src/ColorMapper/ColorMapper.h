@@ -13,7 +13,11 @@
 struct MapUnit {
     explicit MapUnit(std::string in_path, std::string in_key, const glm::mat4 &transform) :
             path(std::move(in_path)), key(std::move(in_key)), transform(transform) {
-
+        for (int i=0; i<21; i++) {
+            for (int j=0; j<17; j++) {
+                control_vertices[i][j] = glm::vec2(0.f);
+            }
+        }
     }
 
     void load_image() {
@@ -32,6 +36,8 @@ struct MapUnit {
     cv::Mat color_image;
     cv::Mat grey_image;
     cv::Mat grad_x, grad_y;
+
+    glm::vec2 control_vertices[21][17];
 };
 struct GLUnit {
     const int SSAA = 2;
@@ -62,6 +68,8 @@ private:
     void color_vertices(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
+    glm::vec2 bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const;
+    glm::mat2 bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const;
     Shape *shape = nullptr;
 
     std::vector<MapUnit> map_units;
