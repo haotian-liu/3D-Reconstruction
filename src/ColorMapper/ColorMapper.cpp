@@ -272,6 +272,17 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
 
+            int icx = cx / 64, icy = cy / 64;
+            glm::vec2 lerp = bilerp(
+                    mapper.control_vertices[icx][icy],
+                    mapper.control_vertices[icx+1][icy],
+                    mapper.control_vertices[icx][icy+1],
+                    mapper.control_vertices[icx+1][icy+1],
+                    cx, cy
+            );
+            cx = lerp.x;
+            cy = lerp.y;
+
             float pixel = mapper.grey_image.at<float>(cy, cx);
             grey_colors[id] *= mapped_count[id];
             grey_colors[id] += pixel;
@@ -304,7 +315,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         MatrixXf Jg(4, 6), Ju(2, 4), J_F(2, 2), _J_F(2, 2), J_Gamma(1, 2),
                 _Jr(1, 6), Jr(mapper.vertices.size(), 6);
         std::vector<Triplet> tripletList;
-        SparseMatrix<float, Eigen::RowMajor> S_Jr(mapper.vertices.size(), 720);
+        SparseMatrix<float, Eigen::RowMajor> S_Jr(mapper.vertices.size(), 714);
         tripletList.reserve(mapper.vertices.size());
         VectorXf r(mapper.vertices.size());
         glm::vec4 g;
@@ -377,21 +388,21 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
 
-            tripletList.push_back(Triplet(i, 0, _Jr(0)));
-            tripletList.push_back(Triplet(i, 1, _Jr(1)));
-            tripletList.push_back(Triplet(i, 2, _Jr(2)));
-            tripletList.push_back(Triplet(i, 3, _Jr(3)));
-            tripletList.push_back(Triplet(i, 4, _Jr(4)));
-            tripletList.push_back(Triplet(i, 5, _Jr(5)));
+//            tripletList.push_back(Triplet(i, 0, _Jr(0)));
+//            tripletList.push_back(Triplet(i, 1, _Jr(1)));
+//            tripletList.push_back(Triplet(i, 2, _Jr(2)));
+//            tripletList.push_back(Triplet(i, 3, _Jr(3)));
+//            tripletList.push_back(Triplet(i, 4, _Jr(4)));
+//            tripletList.push_back(Triplet(i, 5, _Jr(5)));
 
-            tripletList.push_back(Triplet(i, f1_id*2+6, (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f1_id*2+1+6, (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f2_id*2+6, ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f2_id*2+1+6, ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f3_id*2+6, (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f3_id*2+1+6, (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f4_id*2+6, ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f4_id*2+1+6, ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f1_id*2, 64.f * (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f1_id*2+1, 64.f * (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f2_id*2, 64.f * ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f2_id*2+1, 64.f * ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f3_id*2, 64.f * (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f3_id*2+1, 64.f * (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f4_id*2, 64.f * ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(i, f4_id*2+1, 64.f * ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
 
             std::cout
 //                    << Ju << std::endl
@@ -401,23 +412,48 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
-//            S_Jr.row(i) = _Jr;
+            Jr.row(i) = _Jr;
             r(i) = pixel;
         }
 
-        S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
-
-//        MatrixXf JrT(6, mapper.vertices.size()), src1(6, 6);
-//        VectorXf src2(6), deltaX(6);
-        MatrixXf src1(720, 720);
-        SparseMatrix<float> JrT;
+        MatrixXf src1_6(6, 6);
+        VectorXf src2_6(6);
+        {
+            MatrixXf JrT(6, mapper.vertices.size());
+            JrT = Jr.transpose();
+            src1_6 = JrT * Jr;
+            src2_6 = JrT * -r;
+        }
+        MatrixXf src1_714(714, 714);
+        VectorXf src2_714(714);
+        {
+            SparseMatrix<float> JrT;
+            S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
+            JrT = S_Jr.transpose();
+            src1_714 = JrT * S_Jr;
+            src2_714 = JrT * -r;
+        }
+        MatrixXf src1 = MatrixXf::Zero(720, 720);
         VectorXf src2(720), deltaX(720);
-        JrT = S_Jr.transpose();
-        src1 = JrT * S_Jr;
-        src2 = JrT * -r;
+
+        src1.block<6,6>(0, 0) = src1_6;
+        src1.block<714,714>(6, 6) = src1_714;
+
+        src2.segment(0, 5) = src2_6;
+        src2.segment(6, 719) = src2_714;
 
         deltaX = src1.ldlt().solve(src2);
 //        deltaX = Jr.colPivHouseholderQr().solve(-r);
+
+        for (int cx=0; cx<21; cx++) {
+            for (int cy=0; cy<17; cy++) {
+                int i = cx * 17 + cy;
+                mapper.control_vertices[cx][cy] += glm::vec2(
+                        deltaX(i * 2),
+                        deltaX(i * 2 + 1)
+                );
+            }
+        }
 
         std::cout
 //                << src1 << std::endl
@@ -459,7 +495,7 @@ glm::mat2
 ColorMapper::bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx,
                              int cy) const {
     float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
-    return glm::mat2(
+    return 64.f * glm::mat2(
             (ccy-1)*(v1-v2) + ccy*(v4-v3),
             (ccx-1)*(v1-v3) + ccx*(v4-v2)
     );
