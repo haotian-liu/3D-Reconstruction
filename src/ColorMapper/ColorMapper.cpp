@@ -172,7 +172,7 @@ void ColorMapper::register_views(GLUnit &u) {
             cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
             cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
 
-            if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
+            if (cx < 6 || cx + 6 > u.frameWidth || cy < 6 || cy + 6 > u.frameHeight) {
                 continue;
             }
 
@@ -231,7 +231,7 @@ void ColorMapper::register_vertices(GLUnit &u) {
             cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
             cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
 
-            if (cx < 3 || cx + 3 > u.frameWidth || cy < 3 || cy + 3 > u.frameHeight) {
+            if (cx < 6 || cx + 6 > u.frameWidth || cy < 6 || cy + 6 > u.frameHeight) {
                 continue;
             }
 
@@ -280,8 +280,12 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
                     mapper.control_vertices[icx+1][icy+1],
                     cx, cy
             );
+
             cx = lerp.x;
             cy = lerp.y;
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
 
             float pixel = mapper.grey_image.at<float>(cy, cx);
             grey_colors[id] *= mapped_count[id];
@@ -315,7 +319,6 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         MatrixXf Jg(4, 6), Ju(2, 4), J_F(2, 2), _J_F(2, 2), J_Gamma(1, 2),
                 _Jr(1, 6), Jr(mapper.vertices.size(), 6);
         std::vector<Triplet> tripletList;
-        SparseMatrix<float, Eigen::RowMajor> S_Jr(mapper.vertices.size(), 714);
         tripletList.reserve(mapper.vertices.size());
         VectorXf r(mapper.vertices.size());
         glm::vec4 g;
@@ -371,6 +374,9 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             cx = lerp.x;
             cy = lerp.y;
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
 
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 
@@ -381,14 +387,14 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
 
-            tripletList.push_back(Triplet(i, f1_id*2, 64.f * (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f1_id*2+1, 64.f * (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f2_id*2, 64.f * ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f2_id*2+1, 64.f * ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f3_id*2, 64.f * (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f3_id*2+1, 64.f * (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f4_id*2, 64.f * ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(i, f4_id*2+1, 64.f * ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f1_id*2, 64.f * (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f1_id*2+1, 64.f * (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f2_id*2, 64.f * ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f2_id*2+1, 64.f * ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f3_id*2, 64.f * (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f3_id*2+1, 64.f * (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f4_id*2, 64.f * ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f4_id*2+1, 64.f * ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
 
             std::cout
 //                    << Ju << std::endl
@@ -403,20 +409,20 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             ++vert_count;
         }
 
-        Jr = Jr.topRows(vert_count);
         r = r.topRows(vert_count);
 
         MatrixXf src1_6(6, 6);
         VectorXf src2_6(6);
         {
-            MatrixXf JrT(6, vert_count);
-            JrT = Jr.transpose();
+            Jr = Jr.topRows(vert_count);
+            MatrixXf JrT = Jr.transpose();
             src1_6 = JrT * Jr;
             src2_6 = JrT * -r;
         }
         MatrixXf src1_714(714, 714);
         VectorXf src2_714(714);
         {
+            SparseMatrix<float, Eigen::RowMajor> S_Jr(vert_count, 714);
             SparseMatrix<float> JrT;
             S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
             JrT = S_Jr.transpose();
@@ -448,7 +454,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-                << deltaX << std::endl << std::endl
+//                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
