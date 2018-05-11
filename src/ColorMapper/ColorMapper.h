@@ -68,8 +68,10 @@ private:
     void color_vertices(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
-    glm::vec2 bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const;
-    glm::mat2 bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const;
+    glm::vec2 bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, float cx,
+                     float cy) const;
+    glm::mat2 bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4,
+                              float cx, float cy) const;
     Shape *shape = nullptr;
 
     std::vector<MapUnit> map_units;

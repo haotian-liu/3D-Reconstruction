@@ -261,7 +261,7 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
     for (auto &mapper : map_units) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 g;
-        int cx, cy;
+        float cx, cy;
         GLuint id;
 
         for (int i=0; i<mapper.vertices.size(); i++) {
@@ -281,8 +281,8 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
                     cx, cy
             );
 
-            cx = lerp.x;
-            cy = lerp.y;
+            cx += lerp.x;
+            cy += lerp.y;
             if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                 continue;
             }
@@ -314,7 +314,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
     for (auto &mapper : map_units) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 vert;
-        int cx, cy;
+        float cx, cy;
 
         MatrixXf Jg(4, 6), Ju(2, 4), J_F(2, 2), _J_F(2, 2), J_Gamma(1, 2),
                 _Jr(1, 6), Jr(mapper.vertices.size(), 6);
@@ -366,14 +366,14 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             J_F += _J_F;
 
 
-            float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
+            float ccx = std::fmod(cx, 64) / 64.0, ccy = std::fmod(cy, 64) / 64.0;
             int f1_id = icx * 17 + icy;
             int f2_id = (1+icx) * 17 + icy;
             int f3_id = icx * 17 + (1+icy);
             int f4_id = (1+icx) * 17 + (1+icy);
 
-            cx = lerp.x;
-            cy = lerp.y;
+            cx += lerp.x;
+            cy += lerp.y;
             if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                 continue;
             }
@@ -387,14 +387,24 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
 
-            tripletList.push_back(Triplet(vert_count, f1_id*2, 64.f * (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f1_id*2+1, 64.f * (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f2_id*2, 64.f * ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f2_id*2+1, 64.f * ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f3_id*2, 64.f * (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f3_id*2+1, 64.f * (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f4_id*2, 64.f * ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f4_id*2+1, 64.f * ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
+            float lambda = 0.1;
+
+            tripletList.push_back(Triplet(vert_count, f1_id*2,
+                                          -lambda * 2 * mapper.control_vertices[icx][icy].x - (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f1_id*2+1,
+                                          -lambda * 2 * mapper.control_vertices[icx][icy].y - (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f2_id*2,
+                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy].x - ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f2_id*2+1,
+                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy].y - ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f3_id*2,
+                                          -lambda * 2 * mapper.control_vertices[icx][icy + 1].x - (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f3_id*2+1,
+                                          -lambda * 2 * mapper.control_vertices[icx][icy + 1].y - (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f4_id*2,
+                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy + 1].x - ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, f4_id*2+1,
+                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy + 1].y - ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
 
             std::cout
 //                    << Ju << std::endl
@@ -454,7 +464,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-//                << deltaX << std::endl << std::endl
+                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
@@ -476,23 +486,18 @@ void ColorMapper::optimize_pose(GLUnit &u) {
     }
 }
 
-glm::vec2 ColorMapper::bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx, int cy) const {
-    float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
-    int icx = cx / 64, icy = cy / 64;
-    int rcx = icx * 64, rcy = icy * 64;
-    static const glm::vec2 vx(1.f, 0.f), vy(0.f, 1.f), vc(1.f, 1.f);
-
-    glm::vec2 adjust = (1-ccx)*(1-ccy) * v1 + ccx*(1-ccy) * (v2 + vx) + (1-ccx)*ccy * (v3 + vy) + ccx*ccy * (v4 + vc);
-
-    return adjust * 64.f + glm::vec2(rcx, rcy);
+glm::vec2 ColorMapper::bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4,
+                              float cx, float cy) const {
+    float ccx = std::fmod(cx, 64) / 64.0, ccy = std::fmod(cy, 64) / 64.0;
+    return (1-ccx)*(1-ccy) * v1 + ccx*(1-ccy) * v2 + (1-ccx)*ccy * v3 + ccx*ccy * v4;
 }
 
 glm::mat2
-ColorMapper::bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, int cx,
-                             int cy) const {
-    float ccx = cx % 64 / 64.0, ccy = cy % 64 / 64.0;
-    return 64.f * glm::mat2(
+ColorMapper::bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4,
+                             float cx, float cy) const {
+    float ccx = std::fmod(cx, 64) / 64.0, ccy = std::fmod(cy, 64) / 64.0;
+    return glm::mat2(
             (ccy-1)*(v1-v2) + ccy*(v4-v3),
             (ccx-1)*(v1-v3) + ccx*(v4-v2)
-    );
+    ) / 64.f;
 }
