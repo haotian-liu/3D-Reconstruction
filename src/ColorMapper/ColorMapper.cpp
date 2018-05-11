@@ -319,6 +319,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         tripletList.reserve(mapper.vertices.size());
         VectorXf r(mapper.vertices.size());
         glm::vec4 g;
+        int vert_count = 0;
 
         for (int i=0; i<mapper.vertices.size(); i++) {
             GLuint id = mapper.vertices[i];
@@ -368,17 +369,9 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             int f3_id = icx * 17 + (1+icy);
             int f4_id = (1+icx) * 17 + (1+icy);
 
-//            tripletList.push_back(Triplet(i, f1_id*2+6, (1-ccx)*(1-ccy) * mapper.control_vertices[icx][icy].x));
-//            tripletList.push_back(Triplet(i, f1_id*2+1+6, (1-ccx)*(1-ccy) * mapper.control_vertices[icx][icy].y));
-//            tripletList.push_back(Triplet(i, f2_id*2+6, ccx*(1-ccy) * mapper.control_vertices[icx+1][icy].x));
-//            tripletList.push_back(Triplet(i, f2_id*2+1+6, ccx*(1-ccy) * mapper.control_vertices[icx+1][icy].y));
-//            tripletList.push_back(Triplet(i, f3_id*2+6, (1-ccx)*ccy * mapper.control_vertices[icx][icy+1].x));
-//            tripletList.push_back(Triplet(i, f3_id*2+1+6, (1-ccx)*ccy * mapper.control_vertices[icx][icy+1].y));
-//            tripletList.push_back(Triplet(i, f4_id*2+6, ccx*ccy * mapper.control_vertices[icx+1][icy+1].x));
-//            tripletList.push_back(Triplet(i, f4_id*2+1+6, ccx*ccy * mapper.control_vertices[icx+1][icy+1].y));
-
             cx = lerp.x;
             cy = lerp.y;
+
             float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 
             J_Gamma <<
@@ -387,13 +380,6 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             ;
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
-
-//            tripletList.push_back(Triplet(i, 0, _Jr(0)));
-//            tripletList.push_back(Triplet(i, 1, _Jr(1)));
-//            tripletList.push_back(Triplet(i, 2, _Jr(2)));
-//            tripletList.push_back(Triplet(i, 3, _Jr(3)));
-//            tripletList.push_back(Triplet(i, 4, _Jr(4)));
-//            tripletList.push_back(Triplet(i, 5, _Jr(5)));
 
             tripletList.push_back(Triplet(i, f1_id*2, 64.f * (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
             tripletList.push_back(Triplet(i, f1_id*2+1, 64.f * (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
@@ -412,14 +398,18 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
-            Jr.row(i) = _Jr;
-            r(i) = pixel;
+            Jr.row(vert_count) = _Jr;
+            r(vert_count) = pixel;
+            ++vert_count;
         }
+
+        Jr = Jr.topRows(vert_count);
+        r = r.topRows(vert_count);
 
         MatrixXf src1_6(6, 6);
         VectorXf src2_6(6);
         {
-            MatrixXf JrT(6, mapper.vertices.size());
+            MatrixXf JrT(6, vert_count);
             JrT = Jr.transpose();
             src1_6 = JrT * Jr;
             src2_6 = JrT * -r;
@@ -439,8 +429,8 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         src1.block<6,6>(0, 0) = src1_6;
         src1.block<714,714>(6, 6) = src1_714;
 
-        src2.segment(0, 5) = src2_6;
-        src2.segment(6, 719) = src2_714;
+        src2.segment<6>(0) = src2_6;
+        src2.segment<714>(6) = src2_714;
 
         deltaX = src1.ldlt().solve(src2);
 //        deltaX = Jr.colPivHouseholderQr().solve(-r);
