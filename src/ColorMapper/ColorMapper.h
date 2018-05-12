@@ -18,6 +18,7 @@ struct MapUnit {
                 control_vertices[i][j] = glm::vec2(0.f);
             }
         }
+        full_control = glm::vec2(0.f);
     }
 
     void load_image() {
@@ -38,6 +39,7 @@ struct MapUnit {
     cv::Mat grad_x, grad_y;
 
     glm::vec2 control_vertices[21][17];
+    glm::vec2 full_control;
 };
 struct GLUnit {
     const int SSAA = 2;

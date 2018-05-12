@@ -196,7 +196,7 @@ void ColorMapper::register_vertices(GLUnit &u) {
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::mat3 transform3(transform);
         glm::vec4 g;
-        int cx, cy;
+        float cx, cy;
 
         mapper.vertices.clear();
 
@@ -239,8 +239,8 @@ void ColorMapper::register_vertices(GLUnit &u) {
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
-            if (eyeVis < best_views[i] - 0.1f) continue;
+//            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
+//            if (eyeVis < best_views[i] - 0.1f) continue;
             if (z < pixel + 0.0001f) {
                 mapper.vertices.push_back(i);
             }
@@ -339,6 +339,10 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
 
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
+
             Ju <<
                     u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
                     0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
@@ -389,22 +393,29 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             float lambda = 0.1;
 
-            tripletList.push_back(Triplet(vert_count, f1_id*2,
-                                          -lambda * 2 * mapper.control_vertices[icx][icy].x - (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f1_id*2+1,
-                                          -lambda * 2 * mapper.control_vertices[icx][icy].y - (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f2_id*2,
-                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy].x - ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f2_id*2+1,
-                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy].y - ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f3_id*2,
-                                          -lambda * 2 * mapper.control_vertices[icx][icy + 1].x - (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f3_id*2+1,
-                                          -lambda * 2 * mapper.control_vertices[icx][icy + 1].y - (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f4_id*2,
-                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy + 1].x - ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
-            tripletList.push_back(Triplet(vert_count, f4_id*2+1,
-                                          -lambda * 2 * mapper.control_vertices[icx + 1][icy + 1].y - ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 0, _Jr(0)));
+            tripletList.push_back(Triplet(vert_count, 1, _Jr(1)));
+            tripletList.push_back(Triplet(vert_count, 2, _Jr(2)));
+            tripletList.push_back(Triplet(vert_count, 3, _Jr(3)));
+            tripletList.push_back(Triplet(vert_count, 4, _Jr(4)));
+            tripletList.push_back(Triplet(vert_count, 5, _Jr(5)));
+
+            tripletList.push_back(Triplet(vert_count, 6 + f1_id*2,
+                                          lambda * mapper.full_control.x - (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f1_id*2+1,
+                                          lambda * mapper.full_control.y - (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f2_id*2,
+                                          lambda * mapper.full_control.x - ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f2_id*2+1,
+                                          lambda * mapper.full_control.y - ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f3_id*2,
+                                          lambda * mapper.full_control.x - (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f3_id*2+1,
+                                          lambda * mapper.full_control.y - (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f4_id*2,
+                                          lambda * mapper.full_control.x - ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+            tripletList.push_back(Triplet(vert_count, 6 + f4_id*2+1,
+                                          lambda * mapper.full_control.y - ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
 
             std::cout
 //                    << Ju << std::endl
@@ -414,57 +425,40 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
-            Jr.row(vert_count) = _Jr;
             r(vert_count) = pixel;
             ++vert_count;
         }
 
         r = r.topRows(vert_count);
 
-        MatrixXf src1_6(6, 6);
-        VectorXf src2_6(6);
-        {
-            Jr = Jr.topRows(vert_count);
-            MatrixXf JrT = Jr.transpose();
-            src1_6 = JrT * Jr;
-            src2_6 = JrT * -r;
-        }
-        MatrixXf src1_714(714, 714);
-        VectorXf src2_714(714);
-        {
-            SparseMatrix<float, Eigen::RowMajor> S_Jr(vert_count, 714);
-            SparseMatrix<float> JrT;
-            S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
-            JrT = S_Jr.transpose();
-            src1_714 = JrT * S_Jr;
-            src2_714 = JrT * -r;
-        }
-        MatrixXf src1 = MatrixXf::Zero(720, 720);
+        SparseMatrix<float, Eigen::RowMajor> S_Jr(vert_count, 720);
+        SparseMatrix<float> JrT;
+        MatrixXf src1(720, 720);
         VectorXf src2(720), deltaX(720);
-
-        src1.block<6,6>(0, 0) = src1_6;
-        src1.block<714,714>(6, 6) = src1_714;
-
-        src2.segment<6>(0) = src2_6;
-        src2.segment<714>(6) = src2_714;
+        S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
+        JrT = S_Jr.transpose();
+        src1 = JrT * S_Jr;
+        src2 = JrT * -r;
 
         deltaX = src1.ldlt().solve(src2);
 //        deltaX = Jr.colPivHouseholderQr().solve(-r);
 
+        mapper.full_control = glm::vec2(0.f);
         for (int cx=0; cx<21; cx++) {
             for (int cy=0; cy<17; cy++) {
                 int i = cx * 17 + cy;
                 mapper.control_vertices[cx][cy] += glm::vec2(
-                        deltaX(i * 2),
-                        deltaX(i * 2 + 1)
+                        deltaX(6 + i * 2),
+                        deltaX(6 + i * 2 + 1)
                 );
+                mapper.full_control += mapper.control_vertices[cx][cy];
             }
         }
 
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-                << deltaX << std::endl << std::endl
+//                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
