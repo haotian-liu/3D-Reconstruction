@@ -273,6 +273,9 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
 
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
 
             int icx = cx / 64, icy = cy / 64;
             glm::vec2 lerp = bilerp(
@@ -393,7 +396,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
 
-            float lambda = 0.1;
+            float coeff = 64;
 
             tripletList.push_back(Triplet(vert_count, 0, _Jr(0)));
             tripletList.push_back(Triplet(vert_count, 1, _Jr(1)));
@@ -403,21 +406,21 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             tripletList.push_back(Triplet(vert_count, 5, _Jr(5)));
 
             tripletList.push_back(Triplet(vert_count, 6 + f1_id*2,
-                                          lambda * mapper.full_control.x - (1-ccx)*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+                                          coeff * -(1-ccx)*(1-ccy) * J_Gamma(0)));
             tripletList.push_back(Triplet(vert_count, 6 + f1_id*2+1,
-                                          lambda * mapper.full_control.y - (1-ccx)*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+                                          coeff * -(1-ccx)*(1-ccy) * J_Gamma(1)));
             tripletList.push_back(Triplet(vert_count, 6 + f2_id*2,
-                                          lambda * mapper.full_control.x - ccx*(1-ccy) * mapper.grad_x.at<float>(cy, cx)));
+                                          coeff * -ccx*(1-ccy) * J_Gamma(0)));
             tripletList.push_back(Triplet(vert_count, 6 + f2_id*2+1,
-                                          lambda * mapper.full_control.y - ccx*(1-ccy) * mapper.grad_y.at<float>(cy, cx)));
+                                          coeff * -ccx*(1-ccy) * J_Gamma(1)));
             tripletList.push_back(Triplet(vert_count, 6 + f3_id*2,
-                                          lambda * mapper.full_control.x - (1-ccx)*ccy * mapper.grad_x.at<float>(cy, cx)));
+                                          coeff * -(1-ccx)*ccy * J_Gamma(0)));
             tripletList.push_back(Triplet(vert_count, 6 + f3_id*2+1,
-                                          lambda * mapper.full_control.y - (1-ccx)*ccy * mapper.grad_y.at<float>(cy, cx)));
+                                          coeff * -(1-ccx)*ccy * J_Gamma(1)));
             tripletList.push_back(Triplet(vert_count, 6 + f4_id*2,
-                                          lambda * mapper.full_control.x - ccx*ccy * mapper.grad_x.at<float>(cy, cx)));
+                                          coeff * -ccx*ccy * J_Gamma(0)));
             tripletList.push_back(Triplet(vert_count, 6 + f4_id*2+1,
-                                          lambda * mapper.full_control.y - ccx*ccy * mapper.grad_y.at<float>(cy, cx)));
+                                          coeff * -ccx*ccy * J_Gamma(1)));
 
             std::cout
 //                    << Ju << std::endl
@@ -437,15 +440,26 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         SparseMatrix<float> JrT;
         MatrixXf src1(720, 720);
         VectorXf src2(720), deltaX(720);
+        S_Jr.setZero();
+        JrT.setZero();
         S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
         JrT = S_Jr.transpose();
         src1 = JrT * S_Jr;
         src2 = JrT * -r;
 
+        float lambda = 0.1;
+
+        for (int cx=0; cx<21; cx++) {
+            for (int cy=0; cy<17; cy++) {
+                int i = cx * 17 + cy;
+                src2(6 + i * 2) -= lambda * mapper.control_vertices[cx][cy].x;
+                src2(6 + i * 2 + 1) -= lambda * mapper.control_vertices[cx][cy].x;
+            }
+        }
+
         deltaX = src1.ldlt().solve(src2);
 //        deltaX = Jr.colPivHouseholderQr().solve(-r);
 
-        mapper.full_control = glm::vec2(0.f);
         for (int cx=0; cx<21; cx++) {
             for (int cy=0; cy<17; cy++) {
                 int i = cx * 17 + cy;
@@ -453,14 +467,13 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                         deltaX(6 + i * 2),
                         deltaX(6 + i * 2 + 1)
                 );
-                mapper.full_control += mapper.control_vertices[cx][cy];
             }
         }
 
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-//                << deltaX << std::endl << std::endl
+                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
