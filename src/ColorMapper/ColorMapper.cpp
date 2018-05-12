@@ -125,8 +125,9 @@ void ColorMapper::prepare_OGL(GLUnit &u) {
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LEQUAL);
-//    glEnable(GL_CULL_FACE);
-//    glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CW);
 
     glViewport(0, 0, u.frameWidth, u.frameHeight);
 }
@@ -138,6 +139,7 @@ void ColorMapper::destroy_OGL(GLUnit &u) {
     glDeleteFramebuffers(1, &u.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    glFrontFace(GL_CCW);
     glDisable(GL_CULL_FACE);
 }
 
