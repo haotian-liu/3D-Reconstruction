@@ -6,6 +6,7 @@
 #include <fstream>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Sparse>
+#include <Timer/Timer.h>
 
 using Eigen::MatrixXf;
 using Eigen::VectorXf;
@@ -71,20 +72,24 @@ void ColorMapper::base_map() {
     GLUnit u;
     int iterations;
     bool last_pass;
+    Timer timer;
     printf("Iteration count: ");
     scanf("%d", &iterations);
 
     prepare_OGL(u);
     register_views(u);
     register_vertices(u);
-    printf("\n[LOG] vertices registered.");
+    printf("[LOG] vertices registered.\n");
 
     for (int i=0; i<iterations; i++) {
         last_pass = (i + 1 == iterations);
         color_vertices(u, last_pass);
+
         if (!last_pass) {
+            timer.start();
             optimize_pose(u);
-            printf("\n[LOG] Iteration %d finished.\n", i + 1);
+            timer.stop();
+            printf("[LOG] Iteration %d finished in %lld ms.\n", i + 1, timer.elasped());
         }
     }
     destroy_OGL(u);
@@ -316,7 +321,9 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
 }
 
 void ColorMapper::optimize_pose(GLUnit &u) {
-    for (auto &mapper : map_units) {
+#pragma omp parallel for
+    for (int i=0; i<map_units.size(); i++) {
+        auto &mapper = map_units[i];
         glm::mat4 transform = glm::inverse(mapper.transform);
         glm::vec4 vert;
         float cx, cy;
@@ -473,7 +480,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
         std::cout
 //                << src1 << std::endl
 //                << src2 << std::endl
-                << deltaX << std::endl << std::endl
+//                << deltaX << std::endl << std::endl
                 ;
 //        getchar();
 
