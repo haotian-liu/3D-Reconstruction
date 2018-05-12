@@ -105,7 +105,7 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
         printf("Snapshot taken!\n");
         cv::flip(screenshot_data, flipped, 0);
 //        cv::resize(flipped, screenshot_data, cv::Size(640, 480), 0, 0, cv::INTER_CUBIC);
-        cv::imwrite("output/" + folder + "/" + ts + ".jpg", flipped);
+//        cv::imwrite("output/" + folder + "/" + ts + ".jpg", flipped);
 
         std::ofstream out;
         out.open("output/" + folder + "/pose.log", std::ios::app);
