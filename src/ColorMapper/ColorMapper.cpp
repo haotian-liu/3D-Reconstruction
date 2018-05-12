@@ -79,6 +79,7 @@ void ColorMapper::base_map() {
     prepare_OGL(u);
     register_views(u);
     register_vertices(u);
+    destroy_OGL(u);
     printf("[LOG] vertices registered.\n");
 
     for (int i=0; i<iterations; i++) {
@@ -92,7 +93,7 @@ void ColorMapper::base_map() {
             printf("[LOG] Iteration %d finished in %lld ms.\n", i + 1, timer.elasped());
         }
     }
-    destroy_OGL(u);
+    printf("[LOG] Color mapped.\n");
 }
 
 void ColorMapper::prepare_OGL(GLUnit &u) {
@@ -298,23 +299,27 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
             }
 
             float pixel = mapper.grey_image.at<float>(cy, cx);
-            grey_colors[id] *= mapped_count[id];
             grey_colors[id] += pixel;
-            grey_colors[id] /= (mapped_count[id] + 1);
 
             if (need_color) {
                 cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
-                shape->colors[id] *= mapped_count[id];
                 shape->colors[id] += glm::vec4(
                         pixel_c.val[2],
                         pixel_c.val[1],
                         pixel_c.val[0],
                         1.f
                 );
-                shape->colors[id] /= (mapped_count[id] + 1);
             }
 
             mapped_count[id]++;
+        }
+    }
+    for (int i=0; i<shape->colors.size(); i++) {
+        grey_colors[i] /= mapped_count[i];
+    }
+    if (need_color) {
+        for (int i=0; i<shape->colors.size(); i++) {
+            shape->colors[i] /= mapped_count[i];
         }
     }
     delete[]mapped_count;
