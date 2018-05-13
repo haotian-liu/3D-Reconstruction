@@ -410,28 +410,21 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             float coeff = 1.f;
 
-            tripletList.push_back(Triplet(vert_count, 0, _Jr(0)));
-            tripletList.push_back(Triplet(vert_count, 1, _Jr(1)));
-            tripletList.push_back(Triplet(vert_count, 2, _Jr(2)));
-            tripletList.push_back(Triplet(vert_count, 3, _Jr(3)));
-            tripletList.push_back(Triplet(vert_count, 4, _Jr(4)));
-            tripletList.push_back(Triplet(vert_count, 5, _Jr(5)));
-
-            tripletList.push_back(Triplet(vert_count, 6 + f1_id*2,
+            tripletList.push_back(Triplet(vert_count, f1_id*2,
                                           coeff * -(1-ccx)*(1-ccy) * J_Gamma(0)));
-            tripletList.push_back(Triplet(vert_count, 6 + f1_id*2+1,
+            tripletList.push_back(Triplet(vert_count, f1_id*2+1,
                                           coeff * -(1-ccx)*(1-ccy) * J_Gamma(1)));
-            tripletList.push_back(Triplet(vert_count, 6 + f2_id*2,
+            tripletList.push_back(Triplet(vert_count, f2_id*2,
                                           coeff * -ccx*(1-ccy) * J_Gamma(0)));
-            tripletList.push_back(Triplet(vert_count, 6 + f2_id*2+1,
+            tripletList.push_back(Triplet(vert_count, f2_id*2+1,
                                           coeff * -ccx*(1-ccy) * J_Gamma(1)));
-            tripletList.push_back(Triplet(vert_count, 6 + f3_id*2,
+            tripletList.push_back(Triplet(vert_count, f3_id*2,
                                           coeff * -(1-ccx)*ccy * J_Gamma(0)));
-            tripletList.push_back(Triplet(vert_count, 6 + f3_id*2+1,
+            tripletList.push_back(Triplet(vert_count, f3_id*2+1,
                                           coeff * -(1-ccx)*ccy * J_Gamma(1)));
-            tripletList.push_back(Triplet(vert_count, 6 + f4_id*2,
+            tripletList.push_back(Triplet(vert_count, f4_id*2,
                                           coeff * -ccx*ccy * J_Gamma(0)));
-            tripletList.push_back(Triplet(vert_count, 6 + f4_id*2+1,
+            tripletList.push_back(Triplet(vert_count, f4_id*2+1,
                                           coeff * -ccx*ccy * J_Gamma(1)));
 
             std::cout
@@ -442,22 +435,39 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 //                    << _Jr << std::endl
                     ;
 //            getchar();
+            Jr.row(vert_count) = _Jr;
             r(vert_count) = pixel;
             ++vert_count;
         }
 
         r = r.topRows(vert_count);
 
-        SparseMatrix<float, Eigen::RowMajor> S_Jr(vert_count, 720);
-        SparseMatrix<float> JrT;
-        MatrixXf src1(720, 720);
+        MatrixXf src1_6(6, 6);
+        VectorXf src2_6(6);
+        {
+            Jr = Jr.topRows(vert_count);
+            MatrixXf JrT = Jr.transpose();
+            src1_6 = JrT * Jr;
+            src2_6 = JrT * -r;
+        }
+        MatrixXf src1_714(714, 714);
+        VectorXf src2_714(714);
+        {
+            SparseMatrix<float, Eigen::RowMajor> S_Jr(vert_count, 714);
+            SparseMatrix<float> JrT;
+            S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
+            JrT = S_Jr.transpose();
+            src1_714 = JrT * S_Jr;
+            src2_714 = JrT * -r;
+        }
+        MatrixXf src1 = MatrixXf::Zero(720, 720);
         VectorXf src2(720), deltaX(720);
-        S_Jr.setZero();
-        JrT.setZero();
-        S_Jr.setFromTriplets(tripletList.begin(), tripletList.end());
-        JrT = S_Jr.transpose();
-        src1 = JrT * S_Jr;
-        src2 = JrT * -r;
+
+        src1.block<6,6>(0, 0) = src1_6;
+        src1.block<714,714>(6, 6) = src1_714;
+
+        src2.segment<6>(0) = src2_6;
+        src2.segment<714>(6) = src2_714;
 
         float lambda = 0.1;
 
@@ -479,7 +489,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                         deltaX(6 + i * 2),
                         deltaX(6 + i * 2 + 1)
                 );
-                if (glm::length(mapper.control_vertices[cx][cy]) > 1.f) mapper.control_vertices[cx][cy] = glm::vec2(0.f);
+                if (glm::length(mapper.control_vertices[cx][cy]) > 5.f) mapper.control_vertices[cx][cy] = glm::vec2(0.f);
             }
         }
 
