@@ -156,10 +156,12 @@ void ColorMapper::register_views(GLUnit &u) {
 
     best_views.clear();
     best_views.resize(shape->vertices.size(), -1.f);
+    best_view_dirs.resize(shape->vertices.size());
 
     for (auto &mapper : map_units) {
         mapper.vertices.clear();
         glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat3 transform3x3(transform);
         glm::vec4 g;
         int cx, cy;
 
@@ -189,8 +191,11 @@ void ColorMapper::register_views(GLUnit &u) {
             float pixel = getColorSubpix(screenshot_data, cv::Point2f(cx, cy));
             if (!within_depth(i, pixel, z)) continue;
 
-            float eyeVis = std::fabs(glm::dot(glm::normalize(glm::mat3(transform) * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
-            if (best_views[i] < eyeVis) best_views[i] = eyeVis;
+            float eyeVis = glm::dot(transform3x3 * shape->normals[i], glm::vec3(0.f, 0.f, -1.f));
+            if (best_views[i] < eyeVis) {
+                best_views[i] = eyeVis;
+                best_view_dirs[i] = transform3x3 * shape->normals[i];
+            }
         }
     }
 
@@ -294,8 +299,8 @@ void ColorMapper::register_vertices(GLUnit &u) {
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
-            if (eyeVis < best_views[i] - 0.1f) continue;
+            float eyeVis = glm::dot(transform3 * shape->normals[i], best_view_dirs[i]);
+            if (eyeVis < 0.9f) continue;
             if (within_depth(i, pixel, z)) {
                 mapper.vertices.push_back(i);
             }

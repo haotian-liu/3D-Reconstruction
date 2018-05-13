@@ -85,6 +85,7 @@ private:
     std::vector<MapUnit> map_units;
     std::vector<GLfloat> grey_colors;
     std::vector<float> best_views;
+    std::vector<glm::vec3> best_view_dirs;
     std::vector<float> best_depths;
 };
 
