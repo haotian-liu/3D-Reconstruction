@@ -74,6 +74,8 @@ private:
                               float cx, float cy) const;
     Shape *shape = nullptr;
 
+    int iteration;
+
     std::vector<MapUnit> map_units;
     std::vector<GLfloat> grey_colors;
     std::vector<float> best_views;

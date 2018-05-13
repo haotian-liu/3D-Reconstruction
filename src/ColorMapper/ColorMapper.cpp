@@ -82,15 +82,15 @@ void ColorMapper::base_map() {
     destroy_OGL(u);
     printf("[LOG] vertices registered.\n");
 
-    for (int i=0; i<iterations; i++) {
-        last_pass = (i + 1 == iterations);
+    for (iteration=0; iteration<iterations; iteration++) {
+        last_pass = (iteration + 1 == iterations);
         color_vertices(u, last_pass);
 
         if (!last_pass) {
             timer.start();
             optimize_pose(u);
             timer.stop();
-            printf("[LOG] Iteration %d finished in %lld ms.\n", i + 1, timer.elasped());
+            printf("[LOG] Iteration %d finished in %lld ms.\n", iteration + 1, timer.elasped());
         }
     }
     printf("[LOG] Color mapped.\n");
@@ -408,7 +408,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 
             _Jr = -J_Gamma * J_F * Ju * Jg;
 
-            float coeff = 64;
+            float coeff = 1.f;
 
             tripletList.push_back(Triplet(vert_count, 0, _Jr(0)));
             tripletList.push_back(Triplet(vert_count, 1, _Jr(1)));
@@ -479,6 +479,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                         deltaX(6 + i * 2),
                         deltaX(6 + i * 2 + 1)
                 );
+                if (glm::length(mapper.control_vertices[cx][cy]) > 1.f) mapper.control_vertices[cx][cy] = glm::vec2(0.f);
             }
         }
 
