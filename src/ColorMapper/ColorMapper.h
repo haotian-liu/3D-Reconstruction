@@ -10,6 +10,8 @@
 #include "Geometry/Shape.h"
 #include "Shader/ShaderProgram.h"
 
+#define RECONSTRUCTION_max(a, b) ((a) > (b) ? (a) : (b))
+
 struct MapUnit {
     explicit MapUnit(std::string in_path, std::string in_key, const glm::mat4 &transform) :
             path(std::move(in_path)), key(std::move(in_key)), transform(transform) {
@@ -64,6 +66,7 @@ private:
     void prepare_OGL(GLUnit &u);
     void destroy_OGL(GLUnit &u);
     void register_views(GLUnit &u);
+    void register_depths(GLUnit &u);
     void register_vertices(GLUnit &u);
     void color_vertices(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
@@ -72,6 +75,9 @@ private:
                      float cy) const;
     glm::mat2 bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4,
                               float cx, float cy) const;
+    float getColorSubpix(const cv::Mat& img, cv::Point2f pt);
+    inline bool within_depth(GLuint vert_id, float pixel, float z) { return std::fabs(z - pixel) < RECONSTRUCTION_max(0.001, best_depths[vert_id] * 5); }
+
     Shape *shape = nullptr;
 
     int iteration;
@@ -79,6 +85,7 @@ private:
     std::vector<MapUnit> map_units;
     std::vector<GLfloat> grey_colors;
     std::vector<float> best_views;
+    std::vector<float> best_depths;
 };
 
 

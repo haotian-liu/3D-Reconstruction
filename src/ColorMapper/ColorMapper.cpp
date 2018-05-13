@@ -77,6 +77,7 @@ void ColorMapper::base_map() {
     scanf("%d", &iterations);
 
     prepare_OGL(u);
+    register_depths(u);
     register_views(u);
     register_vertices(u);
     destroy_OGL(u);
@@ -184,11 +185,56 @@ void ColorMapper::register_views(GLUnit &u) {
                 continue;
             }
 
-            float pixel = screenshot_data.at<float>(cy, cx);
-            if (!(z < pixel + 0.0001f)) continue;
+//            float pixel = screenshot_data.at<float>(cy, cx);
+            float pixel = getColorSubpix(screenshot_data, cv::Point2f(cx, cy));
+            if (!within_depth(i, pixel, z)) continue;
 
             float eyeVis = std::fabs(glm::dot(glm::normalize(glm::mat3(transform) * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
             if (best_views[i] < eyeVis) best_views[i] = eyeVis;
+        }
+    }
+
+    delete []screenshot_raw;
+}
+
+void ColorMapper::register_depths(GLUnit &u) {
+    cv::Mat screenshot_data;
+    auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
+
+    best_depths.clear();
+    best_depths.resize(shape->vertices.size(), 0.01);
+
+    for (auto &mapper : map_units) {
+        mapper.vertices.clear();
+        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::vec4 g;
+        int cx, cy;
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        u.shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(u.shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+
+        glBindVertexArray(u.vao);
+        glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
+        u.shader.Deactivate();
+
+        glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
+
+        for (int i=0; i<shape->vertices.size(); i++) {
+            g = transform * glm::vec4(shape->vertices[i], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
+            cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
+            cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
+
+            if (cx < 6 || cx + 6 > u.frameWidth || cy < 6 || cy + 6 > u.frameHeight) {
+                continue;
+            }
+
+//            float pixel = screenshot_data.at<float>(cy, cx);
+            float pixel = getColorSubpix(screenshot_data, cv::Point2f(cx, cy));
+            if (std::fabs(z - pixel) < best_depths[i]) best_depths[i] = std::fabs(z - pixel);
         }
     }
 
@@ -243,13 +289,14 @@ void ColorMapper::register_vertices(GLUnit &u) {
                 continue;
             }
 
-            float pixel = screenshot_data.at<float>(cy, cx);
+//            float pixel = screenshot_data.at<float>(cy, cx);
+            float pixel = getColorSubpix(screenshot_data, cv::Point2f(cx, cy));
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-//            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
-//            if (eyeVis < best_views[i] - 0.1f) continue;
-            if (z < pixel + 0.0001f) {
+            float eyeVis = std::fabs(glm::dot(glm::normalize(transform3 * shape->normals[i]), glm::vec3(0.f, 0.f, 1.f)));
+            if (eyeVis < best_views[i] - 0.1f) continue;
+            if (within_depth(i, pixel, z)) {
                 mapper.vertices.push_back(i);
             }
         }
@@ -532,4 +579,23 @@ ColorMapper::bilerp_gradient(const glm::vec2 &v1, const glm::vec2 &v2, const glm
             (ccy-1)*(v1-v2) + ccy*(v4-v3),
             (ccx-1)*(v1-v3) + ccx*(v4-v2)
     ) / 64.f;
+}
+
+float ColorMapper::getColorSubpix(const cv::Mat &img, cv::Point2f pt) {
+    assert(!img.empty());
+    assert(img.channels() == 1);
+
+    auto x = (int)pt.x;
+    auto y = (int)pt.y;
+
+    int x0 = x;
+    int x1 = x+1;
+    int y0 = y;
+    int y1 = y+1;
+
+    float a = pt.x - (float)x;
+    float c = pt.y - (float)y;
+
+    return (img.at<float>(y0, x0) * (1.f - a) + img.at<float>(y0, x1) * a) * (1.f - c)
+                             + (img.at<float>(y1, x0) * (1.f - a) + img.at<float>(y1, x1) * a) * c;
 }
