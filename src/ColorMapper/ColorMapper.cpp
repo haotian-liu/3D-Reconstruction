@@ -617,9 +617,9 @@ void ColorMapper::register_vertices_pose_only(GLUnit &u) {
         float cx, cy;
 
         mapper.vertices_po.clear();
-        mapper.vertices_po.resize((2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1));
+        mapper.vertices_po.resize((2 * mapper.v_rows + 1) * (2 * mapper.v_cols + 1));
         mapper.transform_po.clear();
-        for (int i=0; i<(2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1); i++) {
+        for (int i=0; i<(2 * mapper.v_rows + 1) * (2 * mapper.v_cols + 1); i++) {
             mapper.transform_po.push_back(mapper.transform);
         }
         int width = u.frameWidth / mapper.v_cols;
@@ -671,13 +671,13 @@ void ColorMapper::register_vertices_pose_only(GLUnit &u) {
                 int col = cx / (width / 2);
                 int row = cy / (height / 2);
 
-                for (int dx = -1; dx <= 0; dx++) {
-                    for (int dy = -1; dy <= 0; dy++) {
-                        if (dx + col < 0) continue;
-                        if (dy + row < 0) continue;
-                        if (dx + col >= 2 * mapper.v_cols - 1) continue;
-                        if (dy + row >= 2 * mapper.v_rows - 1) continue;
-                        mapper.vertices_po[(dy + row) * mapper.v_cols + (dx + col)].push_back(i);
+                for (int dx = 0; dx <= 1; dx++) {
+                    for (int dy = 0; dy <= 1; dy++) {
+//                        if (dx + col < 0) continue;
+//                        if (dy + row < 0) continue;
+//                        if (dx + col >= 2 * mapper.v_cols - 1) continue;
+//                        if (dy + row >= 2 * mapper.v_rows - 1) continue;
+                        mapper.vertices_po[(dy + row) * (2 * mapper.v_cols - 1) + (dx + col)].push_back(i);
                     }
                 }
             }
@@ -690,10 +690,14 @@ void ColorMapper::color_vertices_pose_only(GLUnit &u, bool need_color) {
     auto mapped_count = new int[shape->vertices.size()];
     memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
 
-    std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
+    if (need_color) {
+        std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
+    }
 
+    if (grey_colors.capacity() != shape->vertices.size()) {
+        grey_colors.resize(shape->vertices.size(), 0.f);
+    }
     grey_colors.clear();
-    grey_colors.resize(shape->vertices.size());
 
     for (auto &mapper : map_units) {
         glm::vec4 g;
@@ -710,6 +714,10 @@ void ColorMapper::color_vertices_pose_only(GLUnit &u, bool need_color) {
 
                 cx = g.x * u.f.x / g.z + u.c.x;
                 cy = g.y * u.f.y / g.z + u.c.y;
+
+                if (std::isnan(cx) || std::isnan(cy)) {
+                    continue;
+                }
 
                 if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                     continue;
@@ -772,6 +780,10 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
                 cx = g.x * u.f.x / g.z + u.c.x;
                 cy = g.y * u.f.y / g.z + u.c.y;
 
+                if (std::isnan(cx) || std::isnan(cy)) {
+                    continue;
+                }
+
                 if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                     continue;
                 }
@@ -801,6 +813,8 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
                 ++vert_count;
             }
 
+            if (!vert_count) continue;
+
             r = r.topRows(vert_count);
             Jr = Jr.topRows(vert_count);
 
@@ -826,6 +840,12 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
             float ai = deltaX(3);
             float bi = deltaX(4);
             float ci = deltaX(5);
+
+            bool is_nan = false;
+            for (int i=0; i<5; i++) {
+                if (std::isnan(deltaX(i))) { is_nan = true; }
+            }
+            if (is_nan) { continue; }
 
             glm::mat4 kx(
                     glm::vec4(1.f, gamma_i, -beta_i, 0.f),
