@@ -617,9 +617,9 @@ void ColorMapper::register_vertices_pose_only(GLUnit &u) {
         float cx, cy;
 
         mapper.vertices_po.clear();
-        mapper.vertices_po.resize((2 * mapper.v_rows + 1) * (2 * mapper.v_cols + 1));
+        mapper.vertices_po.resize((2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1));
         mapper.transform_po.clear();
-        for (int i=0; i<(2 * mapper.v_rows + 1) * (2 * mapper.v_cols + 1); i++) {
+        for (int i=0; i<(2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1); i++) {
             mapper.transform_po.push_back(mapper.transform);
         }
         int width = u.frameWidth / mapper.v_cols;
@@ -671,12 +671,12 @@ void ColorMapper::register_vertices_pose_only(GLUnit &u) {
                 int col = cx / (width / 2);
                 int row = cy / (height / 2);
 
-                for (int dx = 0; dx <= 1; dx++) {
-                    for (int dy = 0; dy <= 1; dy++) {
-//                        if (dx + col < 0) continue;
-//                        if (dy + row < 0) continue;
-//                        if (dx + col >= 2 * mapper.v_cols - 1) continue;
-//                        if (dy + row >= 2 * mapper.v_rows - 1) continue;
+                for (int dx = -1; dx <= 0; dx++) {
+                    for (int dy = -1; dy <= 0; dy++) {
+                        if (dx + col < 0) continue;
+                        if (dy + row < 0) continue;
+                        if (dx + col >= 2 * mapper.v_cols - 1) continue;
+                        if (dy + row >= 2 * mapper.v_rows - 1) continue;
                         mapper.vertices_po[(dy + row) * (2 * mapper.v_cols - 1) + (dx + col)].push_back(i);
                     }
                 }
@@ -840,6 +840,10 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
             float ai = deltaX(3);
             float bi = deltaX(4);
             float ci = deltaX(5);
+
+            if (deltaX.norm() > 0.01f) {
+                continue;
+            }
 
             bool is_nan = false;
             for (int i=0; i<5; i++) {

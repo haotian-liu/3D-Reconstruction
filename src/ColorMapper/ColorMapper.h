@@ -41,7 +41,7 @@ struct MapUnit {
     cv::Mat grey_image;
     cv::Mat grad_x, grad_y;
 
-    const int v_rows = 6, v_cols = 6;
+    const int v_rows = 8, v_cols = 10;
 
     glm::vec2 control_vertices[21][17];
 };
