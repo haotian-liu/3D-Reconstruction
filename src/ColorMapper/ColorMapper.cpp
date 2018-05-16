@@ -79,17 +79,17 @@ void ColorMapper::base_map() {
     prepare_OGL(u);
     register_depths(u);
     register_views(u);
-    register_vertices(u);
+    register_vertices_pose_only(u);
     destroy_OGL(u);
     printf("[LOG] vertices registered.\n");
 
     for (iteration=0; iteration<iterations; iteration++) {
         last_pass = (iteration + 1 == iterations);
-        color_vertices(u, last_pass);
+        color_vertices_pose_only(u, last_pass);
 
         if (!last_pass) {
             timer.start();
-            optimize_pose(u);
+            optimize_pose_only(u);
             timer.stop();
             printf("[LOG] Iteration %d finished in %lld ms.\n", iteration + 1, timer.elasped());
         }
@@ -603,4 +603,238 @@ float ColorMapper::getColorSubpix(const cv::Mat &img, cv::Point2f pt) {
 
     return (img.at<float>(y0, x0) * (1.f - a) + img.at<float>(y0, x1) * a) * (1.f - c)
                              + (img.at<float>(y1, x0) * (1.f - a) + img.at<float>(y1, x1) * a) * c;
+}
+
+void ColorMapper::register_vertices_pose_only(GLUnit &u) {
+    cv::Mat screenshot_data;
+    auto screenshot_raw = new GLfloat[u.frameWidth * u.frameHeight];
+
+    for (auto &mapper : map_units) {
+        cv::Mat grad;
+        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat3 transform3(transform);
+        glm::vec4 g;
+        float cx, cy;
+
+        mapper.vertices_po.clear();
+        mapper.vertices_po.resize((2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1));
+        mapper.transform_po.clear();
+        for (int i=0; i<(2 * mapper.v_rows - 1) * (2 * mapper.v_cols - 1); i++) {
+            mapper.transform_po.push_back(mapper.transform);
+        }
+        int width = u.frameWidth / mapper.v_cols;
+        int height = u.frameHeight / mapper.v_rows;
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+        u.shader.Activate();
+        glUniformMatrix4fv(glGetUniformLocation(u.shader.ProgramId(), "transform"), 1, GL_FALSE, &transform[0][0]);
+        glBindVertexArray(u.vao);
+        glDrawElements(GL_TRIANGLES, shape->faces.size(), GL_UNSIGNED_INT, 0);
+        u.shader.Deactivate();
+
+        glReadPixels(0, 0, u.frameWidth, u.frameHeight, GL_DEPTH_COMPONENT, GL_FLOAT, screenshot_raw);
+        screenshot_data = cv::Mat(u.frameHeight, u.frameWidth, CV_32F, screenshot_raw);
+
+        // Calculate gradient
+        {
+            cv::Mat gray, grad_x, grad_y;
+            cv::normalize(screenshot_data, gray, 0, 1, cv::NORM_MINMAX);
+            gray.convertTo(gray, CV_32F, 1.f, 0);
+
+            cv::Scharr(gray, grad_x, -1, 0, 1);
+            grad_x = cv::abs(grad_x);
+
+            cv::Scharr(gray, grad_y, -1, 1, 0);
+            grad_y = cv::abs(grad_y);
+
+            cv::addWeighted(grad_x, 0.5, grad_y, 0.5, 0, grad);
+        }
+
+        for (int i=0; i<shape->vertices.size(); i++) {
+            g = transform * glm::vec4(shape->vertices[i], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
+            cx = u.SSAA * (g.x * u.f.x / g.z + u.c.x);
+            cy = u.SSAA * (g.y * u.f.y / g.z + u.c.y);
+
+            if (cx < 6 || cx + 6 > u.frameWidth || cy < 6 || cy + 6 > u.frameHeight) {
+                continue;
+            }
+
+//            float pixel = screenshot_data.at<float>(cy, cx);
+            float pixel = getColorSubpix(screenshot_data, cv::Point2f(cx, cy));
+            float gradient = grad.at<float>(cy, cx);
+            if (gradient > 0.1) continue;
+
+            float eyeVis = glm::dot(transform3 * shape->normals[i], best_view_dirs[i]);
+            if (eyeVis < 0.9f) continue;
+            if (within_depth(i, pixel, z)) {
+                int col = cx / (width / 2);
+                int row = cy / (height / 2);
+
+                for (int dx = -1; dx <= 0; dx++) {
+                    for (int dy = -1; dy <= 0; dy++) {
+                        if (dx + col < 0) continue;
+                        if (dy + row < 0) continue;
+                        if (dx + col >= 2 * mapper.v_cols - 1) continue;
+                        if (dy + row >= 2 * mapper.v_rows - 1) continue;
+                        mapper.vertices_po[(dy + row) * mapper.v_cols + (dx + col)].push_back(i);
+                    }
+                }
+            }
+        }
+    }
+    delete[]screenshot_raw;
+}
+
+void ColorMapper::color_vertices_pose_only(GLUnit &u, bool need_color) {
+    auto mapped_count = new int[shape->vertices.size()];
+    memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
+
+    std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
+
+    grey_colors.clear();
+    grey_colors.resize(shape->vertices.size());
+
+    for (auto &mapper : map_units) {
+        glm::vec4 g;
+        float cx, cy;
+        GLuint id;
+
+        for (int j=0; j<mapper.vertices_po.size(); j++) {
+            auto &verts = mapper.vertices_po[j];
+            glm::mat4 transform = glm::inverse(mapper.transform_po[j]);
+            for (int i = 0; i < verts.size(); i++) {
+                id = verts[i];
+                g = transform * glm::vec4(shape->vertices[id], 1.f);
+                GLfloat z = .75f + g.z / 8.f;
+
+                cx = g.x * u.f.x / g.z + u.c.x;
+                cy = g.y * u.f.y / g.z + u.c.y;
+
+                if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                    continue;
+                }
+
+                float pixel = mapper.grey_image.at<float>(cy, cx);
+                grey_colors[id] += pixel;
+
+                if (need_color) {
+                    cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
+                    shape->colors[id] += glm::vec4(
+                            pixel_c.val[2],
+                            pixel_c.val[1],
+                            pixel_c.val[0],
+                            1.f
+                    );
+                }
+
+                mapped_count[id]++;
+            }
+        }
+    }
+    for (int i=0; i<shape->colors.size(); i++) {
+        grey_colors[i] /= mapped_count[i];
+    }
+    if (need_color) {
+        for (int i=0; i<shape->colors.size(); i++) {
+            shape->colors[i] /= mapped_count[i];
+        }
+    }
+    delete[]mapped_count;
+}
+
+void ColorMapper::optimize_pose_only(GLUnit &u) {
+#pragma omp parallel for
+    for (int i=0; i<map_units.size(); i++) {
+        auto &mapper = map_units[i];
+        for (int j=0; j<mapper.vertices_po.size(); j++) {
+            auto &verts = mapper.vertices_po[j];
+            glm::mat4 transform = glm::inverse(mapper.transform_po[j]);
+            glm::vec4 vert;
+            float cx, cy;
+
+            MatrixXf Jg(4, 6), Ju(2, 4), J_Gamma(1, 2), _Jr(1, 6), Jr(verts.size(), 6);
+            VectorXf r(verts.size());
+            glm::vec4 g;
+            int vert_count = 0;
+
+            for (int i = 0; i < verts.size(); i++) {
+                GLuint id = verts[i];
+                g = transform * glm::vec4(shape->vertices[id], 1.f);
+                GLfloat z = .75f + vert.z / 8.f;
+
+                Jg <<
+                   0, g.z, -g.y, g.w, 0, 0,
+                        -g.z, 0, g.x, 0, g.w, 0,
+                        g.y, -g.x, 0, 0, 0, g.w,
+                        0, 0, 0, 0, 0, 0;
+
+                cx = g.x * u.f.x / g.z + u.c.x;
+                cy = g.y * u.f.y / g.z + u.c.y;
+
+                if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                    continue;
+                }
+
+                Ju <<
+                   u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
+                        0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0;
+
+                float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
+
+                J_Gamma <<
+                        mapper.grad_x.at<float>(cy, cx),
+                        mapper.grad_y.at<float>(cy, cx);
+
+                _Jr = -J_Gamma * Ju * Jg;
+
+                std::cout
+//                    << Ju << std::endl
+//                    << Jg << std::endl
+//                    << J_Gamma << std::endl
+//                    << pixel << std::endl
+//                    << _Jr << std::endl
+                        ;
+//            getchar();
+                Jr.row(vert_count) = _Jr;
+                r(vert_count) = pixel;
+                ++vert_count;
+            }
+
+            r = r.topRows(vert_count);
+            Jr = Jr.topRows(vert_count);
+
+            MatrixXf src1(6, 6);
+            VectorXf src2(6), deltaX(7);
+            MatrixXf JrT = Jr.transpose();
+            src1 = JrT * Jr;
+            src2 = JrT * -r;
+
+            deltaX = src1.ldlt().solve(src2);
+//        deltaX = Jr.colPivHouseholderQr().solve(-r);
+
+            std::cout
+//                << src1 << std::endl
+//                << src2 << std::endl
+//                << deltaX << std::endl << std::endl
+                    ;
+//        getchar();
+
+            float alpha_i = deltaX(0);
+            float beta_i = deltaX(1);
+            float gamma_i = deltaX(2);
+            float ai = deltaX(3);
+            float bi = deltaX(4);
+            float ci = deltaX(5);
+
+            glm::mat4 kx(
+                    glm::vec4(1.f, gamma_i, -beta_i, 0.f),
+                    glm::vec4(-gamma_i, 1.f, alpha_i, 0.f),
+                    glm::vec4(beta_i, -alpha_i, 1.f, 0.f),
+                    glm::vec4(ai, bi, ci, 1.f)
+            );
+
+            mapper.transform_po[j] = kx * mapper.transform_po[j];
+        }
+    }
 }

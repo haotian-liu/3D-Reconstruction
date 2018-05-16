@@ -35,9 +35,13 @@ struct MapUnit {
     std::string key;
     glm::mat4 transform;
     std::vector<GLuint> vertices;
+    std::vector<std::vector<GLuint>> vertices_po;
+    std::vector<glm::mat4> transform_po;
     cv::Mat color_image;
     cv::Mat grey_image;
     cv::Mat grad_x, grad_y;
+
+    const int v_rows = 6, v_cols = 6;
 
     glm::vec2 control_vertices[21][17];
 };
@@ -68,8 +72,11 @@ private:
     void register_views(GLUnit &u);
     void register_depths(GLUnit &u);
     void register_vertices(GLUnit &u);
+    void register_vertices_pose_only(GLUnit &u);
     void color_vertices(GLUnit &u, bool need_color);
+    void color_vertices_pose_only(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
+    void optimize_pose_only(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     glm::vec2 bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, float cx,
                      float cy) const;
