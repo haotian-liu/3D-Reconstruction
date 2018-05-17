@@ -135,3 +135,37 @@ void Shape::convert_to_glm(const std::vector<GLfloat> &in_vector, std::vector<gl
         out_glm_vector.emplace_back(*(head), *(head + 1), *(head + 2), *(head + 3));
     }
 }
+
+void Shape::export_to_ply(const std::string &filename) {
+    std::filebuf fb;
+    fb.open(filename, std::ios::out | std::ios::binary);
+    std::ostream outputStream(&fb);
+
+    tinyply::PlyFile exampleOutFile;
+
+    std::vector<float> verts, normals;
+    std::vector<GLubyte> colors;
+
+    for (int i=0; i<vertices.size(); i++) {
+        verts.push_back(this->vertices[i].x);
+        verts.push_back(this->vertices[i].y);
+        verts.push_back(this->vertices[i].z);
+        normals.push_back(this->normals[i].x);
+        normals.push_back(this->normals[i].y);
+        normals.push_back(this->normals[i].z);
+        colors.push_back(255 * this->colors[i].x);
+        colors.push_back(255 * this->colors[i].y);
+        colors.push_back(255 * this->colors[i].z);
+        colors.push_back(255 * this->colors[i].w);
+    }
+
+    exampleOutFile.add_properties_to_element("vertex", { "x", "y", "z" }, verts);
+    exampleOutFile.add_properties_to_element("vertex", { "nx", "ny", "nz" }, normals);
+    exampleOutFile.add_properties_to_element("vertex", { "red", "green", "blue", "alpha" }, colors);
+
+    exampleOutFile.add_properties_to_element("face", { "vertex_indices" }, faces, 3, tinyply::PlyProperty::Type::UINT8);
+
+    exampleOutFile.write(outputStream, false);
+
+    fb.close();
+}

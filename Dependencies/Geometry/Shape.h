@@ -21,6 +21,7 @@ struct Shape {
     }
 
     bool load_from_ply(const std::string &filename);
+    void export_to_ply(const std::string &filename);
 
     std::vector<glm::vec3> vertices, normals;
     std::vector<glm::vec2> uvs;

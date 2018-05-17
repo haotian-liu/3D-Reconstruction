@@ -180,6 +180,7 @@ bool Renderer::processPolygon() {
         shape.initialize_colors();
         cm.map_color();
     }
+    shape.export_to_ply("output/recon.ply");
     return true;
 }
 
