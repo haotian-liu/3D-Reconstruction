@@ -160,7 +160,7 @@ void ColorMapper::register_views(GLUnit &u) {
 
     for (auto &mapper : map_units) {
         mapper.vertices.clear();
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::mat3 transform3x3(transform);
         glm::vec4 g;
         int cx, cy;
@@ -211,7 +211,7 @@ void ColorMapper::register_depths(GLUnit &u) {
 
     for (auto &mapper : map_units) {
         mapper.vertices.clear();
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::vec4 g;
         int cx, cy;
 
@@ -252,7 +252,7 @@ void ColorMapper::register_vertices(GLUnit &u) {
 
     for (auto &mapper : map_units) {
         cv::Mat grad;
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::mat3 transform3(transform);
         glm::vec4 g;
         float cx, cy;
@@ -319,7 +319,7 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
     grey_colors.resize(shape->vertices.size());
 
     for (auto &mapper : map_units) {
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::vec4 g;
         float cx, cy;
         GLuint id;
@@ -381,7 +381,7 @@ void ColorMapper::optimize_pose(GLUnit &u) {
 #pragma omp parallel for
     for (int i=0; i<map_units.size(); i++) {
         auto &mapper = map_units[i];
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::vec4 vert;
         float cx, cy;
 
@@ -611,7 +611,7 @@ void ColorMapper::register_vertices_pose_only(GLUnit &u) {
 
     for (auto &mapper : map_units) {
         cv::Mat grad;
-        glm::mat4 transform = glm::inverse(mapper.transform);
+        glm::mat4 transform = mapper.transform;
         glm::mat3 transform3(transform);
         glm::vec4 g;
         float cx, cy;
@@ -706,7 +706,7 @@ void ColorMapper::color_vertices_pose_only(GLUnit &u, bool need_color) {
 
         for (int j=0; j<mapper.vertices_po.size(); j++) {
             auto &verts = mapper.vertices_po[j];
-            glm::mat4 transform = glm::inverse(mapper.transform_po[j]);
+            glm::mat4 transform = mapper.transform_po[j];
             for (int i = 0; i < verts.size(); i++) {
                 id = verts[i];
                 g = transform * glm::vec4(shape->vertices[id], 1.f);
@@ -757,7 +757,7 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
         auto &mapper = map_units[i];
         for (int j=0; j<mapper.vertices_po.size(); j++) {
             auto &verts = mapper.vertices_po[j];
-            glm::mat4 transform = glm::inverse(mapper.transform_po[j]);
+            glm::mat4 transform = mapper.transform_po[j];
             glm::vec4 vert;
             float cx, cy;
 
@@ -798,7 +798,7 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
                         mapper.grad_x.at<float>(cy, cx),
                         mapper.grad_y.at<float>(cy, cx);
 
-                _Jr = -J_Gamma * Ju * Jg;
+                _Jr = J_Gamma * Ju * Jg;
 
                 std::cout
 //                    << Ju << std::endl

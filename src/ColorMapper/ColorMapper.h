@@ -14,7 +14,7 @@
 
 struct MapUnit {
     explicit MapUnit(std::string in_path, std::string in_key, const glm::mat4 &transform) :
-            path(std::move(in_path)), key(std::move(in_key)), transform(transform) {
+            path(std::move(in_path)), key(std::move(in_key)), transform(glm::inverse(transform)) {
         for (int i=0; i<21; i++) {
             for (int j=0; j<17; j++) {
                 control_vertices[i][j] = glm::vec2(0.f);
