@@ -179,7 +179,7 @@ bool Renderer::processPolygon() {
     if (shape.colors.empty()) {
         shape.initialize_colors();
         cm.map_color();
-        shape.export_to_ply("output/recon.ply");
+//        shape.export_to_ply("output/recon.ply");
     }
     return true;
 }

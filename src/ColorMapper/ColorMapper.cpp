@@ -70,26 +70,33 @@ bool ColorMapper::compileShader(ShaderProgram *shader, const std::string &vs, co
 
 void ColorMapper::base_map() {
     GLUnit u;
-    int iterations;
+    int iterations, optimize_flag;
     bool last_pass;
     Timer timer;
     printf("Iteration count: ");
     scanf("%d", &iterations);
+    printf("Optimize FLAG (1=FULL,2=POSE,3=PAPER_POSE): ");
+    scanf("%d", &optimize_flag);
 
     prepare_OGL(u);
     register_depths(u);
-    register_views(u);
-    register_vertices_pose_only(u);
+//    register_views(u);
+    register_vertices(u);
     destroy_OGL(u);
     printf("[LOG] vertices registered.\n");
 
     for (iteration=0; iteration<iterations; iteration++) {
         last_pass = (iteration + 1 == iterations);
-        color_vertices_pose_only(u, last_pass);
+
+        if (optimize_flag == 1) color_vertices(u, last_pass);
+        else if (optimize_flag == 2) color_vertices_pose_only(u, last_pass);
+        else color_vertices_pose_paper(u, last_pass);
 
         if (!last_pass) {
             timer.start();
-            optimize_pose_only(u);
+            if (optimize_flag == 1) optimize_pose(u);
+            else if (optimize_flag == 2) optimize_pose_only(u);
+            else optimize_pose_paper(u);
             timer.stop();
             printf("[LOG] Iteration %d finished in %lld ms.\n", iteration + 1, timer.elasped());
         }
@@ -299,8 +306,8 @@ void ColorMapper::register_vertices(GLUnit &u) {
             float gradient = grad.at<float>(cy, cx);
             if (gradient > 0.1) continue;
 
-            float eyeVis = glm::dot(transform3 * shape->normals[i], best_view_dirs[i]);
-            if (eyeVis < 0.9f) continue;
+//            float eyeVis = glm::dot(transform3 * shape->normals[i], best_view_dirs[i]);
+//            if (eyeVis < 0.9f) continue;
             if (within_depth(i, pixel, z)) {
                 mapper.vertices.push_back(i);
             }
@@ -331,11 +338,18 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
 
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
+
+            if (std::isnan(cx) || std::isnan(cy)) {
+                continue;
+            }
             if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                 continue;
             }
 
             int icx = cx / 64, icy = cy / 64;
+
+//            if (iteration) printf("%f %f ", cx, cy);
+
             glm::vec2 lerp = bilerp(
                     mapper.control_vertices[icx][icy],
                     mapper.control_vertices[icx+1][icy],
@@ -346,11 +360,75 @@ void ColorMapper::color_vertices(GLUnit &u, bool need_color) {
 
             cx += lerp.x;
             cy += lerp.y;
+
             if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                 continue;
             }
 
-            float pixel = mapper.grey_image.at<float>(cy, cx);
+//            if (iteration) printf("%f %f ", cx, cy);
+//            if (iteration) getchar();
+
+//            float pixel = mapper.grey_image.at<float>(cy, cx);
+            float pixel = getColorSubpix(mapper.grey_image, cv::Point2f(cx, cy));
+            grey_colors[id] += pixel;
+
+            if (need_color) {
+                cv::Vec3f pixel_c = mapper.color_image.at<cv::Vec3f>(cy, cx);
+                shape->colors[id] += glm::vec4(
+                        pixel_c.val[2],
+                        pixel_c.val[1],
+                        pixel_c.val[0],
+                        1.f
+                );
+            }
+
+            mapped_count[id]++;
+        }
+    }
+    for (int i=0; i<shape->colors.size(); i++) {
+        grey_colors[i] /= mapped_count[i];
+    }
+    if (need_color) {
+        for (int i=0; i<shape->colors.size(); i++) {
+            shape->colors[i] /= mapped_count[i];
+        }
+    }
+    delete[]mapped_count;
+}
+
+void ColorMapper::color_vertices_pose_paper(GLUnit &u, bool need_color) {
+    auto mapped_count = new int[shape->vertices.size()];
+    memset(mapped_count, 0, sizeof(int) * shape->vertices.size());
+
+    std::fill(shape->colors.begin(), shape->colors.end(), glm::vec4(0.f));
+
+    grey_colors.clear();
+    grey_colors.resize(shape->vertices.size());
+
+    for (auto &mapper : map_units) {
+        glm::mat4 transform = mapper.transform;
+        glm::vec4 g;
+        float cx, cy;
+        GLuint id;
+
+        for (int i=0; i<mapper.vertices.size(); i++) {
+            id = mapper.vertices[i];
+            g = transform * glm::vec4(shape->vertices[id], 1.f);
+            GLfloat z = .75f + g.z / 8.f;
+
+            cx = g.x * u.f.x / g.z + u.c.x;
+            cy = g.y * u.f.y / g.z + u.c.y;
+
+            if (std::isnan(cx) || std::isnan(cy)) {
+                continue;
+            }
+
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
+
+//            float pixel = mapper.grey_image.at<float>(cy, cx);
+            float pixel = getColorSubpix(mapper.grey_image, cv::Point2f(cx, cy));
             grey_colors[id] += pixel;
 
             if (need_color) {
@@ -399,23 +477,27 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             GLfloat z = .75f + vert.z / 8.f;
 
             Jg <<
-                    0, g.z, -g.y, g.w, 0, 0,
+               0, g.z, -g.y, g.w, 0, 0,
                     -g.z, 0, g.x, 0, g.w, 0,
                     g.y, -g.x, 0, 0, 0, g.w,
                     0, 0, 0, 0, 0, 0
-            ;
+                    ;
 
             cx = g.x * u.f.x / g.z + u.c.x;
             cy = g.y * u.f.y / g.z + u.c.y;
+
+            if (std::isnan(cx) || std::isnan(cy)) {
+                continue;
+            }
 
             if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
                 continue;
             }
 
             Ju <<
-                    u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
+               u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
                     0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
-            ;
+                    ;
 
             J_F.setIdentity();
             int icx = cx / 64, icy = cy / 64;
@@ -451,14 +533,16 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                 continue;
             }
 
-            float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
+            float pixel = grey_colors[id] - getColorSubpix(mapper.grey_image, cv::Point2f(cx, cy));
 
             J_Gamma <<
-                    mapper.grad_x.at<float>(cy, cx),
-                    mapper.grad_y.at<float>(cy, cx)
-            ;
+//                    mapper.grad_x.at<float>(cy, cx),
+//                    mapper.grad_y.at<float>(cy, cx),
+                    getColorSubpix(mapper.grad_x, cv::Point2f(cx, cy)),
+                    getColorSubpix(mapper.grad_y, cv::Point2f(cx, cy))
+                    ;
 
-            _Jr = -J_Gamma * J_F * Ju * Jg;
+            _Jr = J_Gamma * J_F * Ju * Jg;
 
             float coeff = 1.f;
 
@@ -527,12 +611,20 @@ void ColorMapper::optimize_pose(GLUnit &u) {
             for (int cy=0; cy<17; cy++) {
                 int i = cx * 17 + cy;
                 src2(6 + i * 2) -= lambda * mapper.control_vertices[cx][cy].x;
-                src2(6 + i * 2 + 1) -= lambda * mapper.control_vertices[cx][cy].x;
+                src2(6 + i * 2 + 1) -= lambda * mapper.control_vertices[cx][cy].y;
             }
         }
 
         deltaX = src1.ldlt().solve(src2);
 //        deltaX = Jr.colPivHouseholderQr().solve(-r);
+
+//        std::cout << vert_count << std::endl;
+
+        bool is_nan = false;
+        for (int i=0; i<720; i++) {
+            if (std::isnan(deltaX(i))) { is_nan = true; }
+        }
+        if (is_nan) { continue; }
 
         for (int cx=0; cx<21; cx++) {
             for (int cy=0; cy<17; cy++) {
@@ -544,6 +636,117 @@ void ColorMapper::optimize_pose(GLUnit &u) {
                 if (glm::length(mapper.control_vertices[cx][cy]) > 5.f) mapper.control_vertices[cx][cy] = glm::vec2(0.f);
             }
         }
+
+        std::cout
+//                << src1 << std::endl
+//                << src2 << std::endl
+//                << deltaX << std::endl << std::endl
+                ;
+//        getchar();
+
+        float alpha_i = deltaX(0);
+        float beta_i = deltaX(1);
+        float gamma_i = deltaX(2);
+        float ai = deltaX(3);
+        float bi = deltaX(4);
+        float ci = deltaX(5);
+
+        glm::mat4 kx(
+                glm::vec4(1.f, gamma_i, -beta_i, 0.f),
+                glm::vec4(-gamma_i, 1.f, alpha_i, 0.f),
+                glm::vec4(beta_i, -alpha_i, 1.f, 0.f),
+                glm::vec4(ai, bi, ci, 1.f)
+        );
+
+        mapper.transform = kx * mapper.transform;
+    }
+}
+
+void ColorMapper::optimize_pose_paper(GLUnit &u) {
+#pragma omp parallel for
+    for (int i=0; i<map_units.size(); i++) {
+        auto &mapper = map_units[i];
+        glm::mat4 transform = mapper.transform;
+        glm::vec4 vert;
+        float cx, cy;
+
+        MatrixXf Jg(4, 6), Ju(2, 4), J_Gamma(1, 2), _Jr(1, 6), Jr(mapper.vertices.size(), 6);
+        VectorXf r(mapper.vertices.size());
+        glm::vec4 g;
+        int vert_count = 0;
+
+        for (int i=0; i<mapper.vertices.size(); i++) {
+            GLuint id = mapper.vertices[i];
+            g = transform * glm::vec4(shape->vertices[id], 1.f);
+            GLfloat z = .75f + vert.z / 8.f;
+
+            Jg <<
+               0, g.z, -g.y, g.w, 0, 0,
+                    -g.z, 0, g.x, 0, g.w, 0,
+                    g.y, -g.x, 0, 0, 0, g.w,
+                    0, 0, 0, 0, 0, 0
+                    ;
+
+            cx = g.x * u.f.x / g.z + u.c.x;
+            cy = g.y * u.f.y / g.z + u.c.y;
+
+            if (std::isnan(cx) || std::isnan(cy)) {
+                continue;
+            }
+
+            if (cx < 3 || cx + 3 > u.GLWidth || cy < 3 || cy + 3 > u.GLHeight) {
+                continue;
+            }
+
+            Ju <<
+               u.f.x / g.z, 0, -g.x * u.f.x / g.z / g.z, 0,
+                    0, u.f.y / g.z, -g.y * u.f.y / g.z / g.z, 0
+                    ;
+
+//            float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
+            float pixel = grey_colors[id] - getColorSubpix(mapper.grey_image, cv::Point2f(cx, cy));
+
+            J_Gamma <<
+                    mapper.grad_x.at<float>(cy, cx),
+                    mapper.grad_y.at<float>(cy, cx)
+                    ;
+
+            _Jr = J_Gamma * Ju * Jg;
+
+            std::cout
+//                    << Ju << std::endl
+//                    << Jg << std::endl
+//                    << J_Gamma << std::endl
+//                    << pixel << std::endl
+//                    << _Jr << std::endl
+                    ;
+//            getchar();
+            Jr.row(vert_count) = _Jr;
+            r(vert_count) = pixel;
+            ++vert_count;
+        }
+
+        if (!vert_count) continue;
+
+        r = r.topRows(vert_count);
+        Jr = Jr.topRows(vert_count);
+
+        MatrixXf src1(6, 6);
+        VectorXf src2(6), deltaX(7);
+        MatrixXf JrT = Jr.transpose();
+        src1 = JrT * Jr;
+        src2 = JrT * -r;
+
+        deltaX = src1.ldlt().solve(src2);
+//        deltaX = Jr.colPivHouseholderQr().solve(-r);
+
+//        std::cout << vert_count << std::endl;
+
+        bool is_nan = false;
+        for (int i=0; i<6; i++) {
+            if (std::isnan(deltaX(i))) { is_nan = true; }
+        }
+        if (is_nan) { continue; }
 
         std::cout
 //                << src1 << std::endl
@@ -846,7 +1049,7 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
             }
 
             bool is_nan = false;
-            for (int i=0; i<5; i++) {
+            for (int i=0; i<6; i++) {
                 if (std::isnan(deltaX(i))) { is_nan = true; }
             }
             if (is_nan) { continue; }

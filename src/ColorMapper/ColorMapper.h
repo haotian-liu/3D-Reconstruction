@@ -75,8 +75,11 @@ private:
     void register_vertices_pose_only(GLUnit &u);
     void color_vertices(GLUnit &u, bool need_color);
     void color_vertices_pose_only(GLUnit &u, bool need_color);
+    void color_vertices_pose_paper(GLUnit &u, bool need_color);
     void optimize_pose(GLUnit &u);
     void optimize_pose_only(GLUnit &u);
+    void optimize_pose_paper(GLUnit &u);
+    void optimize_full_paper(GLUnit &u);
     bool compileShader(ShaderProgram *shader, const std::string &vs, const std::string &fs);
     glm::vec2 bilerp(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4, float cx,
                      float cy) const;
