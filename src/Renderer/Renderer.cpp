@@ -146,12 +146,17 @@ void Renderer::updateCamera() {
     );
 }
 
+#define max(a,b) ((a) > (b) ? (a) : (b))
+float max3(glm::vec3 v) {
+    return max(max(v.x, v.y), v.z);
+}
+
 void Renderer::render() {
     projMatrix = glm::perspective(glm::radians(60.f), 640.f / 480, 0.001f, 10.f);
 //    modelMatrix = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f))
 //                  * glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f))
 //                  * glm::translate(glm::mat4(1.f), shape.offset);
-    modelMatrix = glm::translate(glm::mat4(1.f), -shape.offset);
+    modelMatrix = glm::scale(glm::mat4(1.f), glm::vec3(2.0 / max3(shape.size))) * glm::translate(glm::mat4(1.f), -shape.offset);
     updateCamera();
 
     shader->Activate();

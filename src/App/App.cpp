@@ -7,7 +7,7 @@
 
 void App::init() {
     r = new Renderer;
-    r->setupPolygon("assets/fountain.ply");
+    r->setupPolygon("assets/data1.ply");
     r->setupShader("shader/phong.vert", "shader/phong.frag");
     r->setupBuffer();
     updateViewport();

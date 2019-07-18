@@ -19,13 +19,13 @@ typedef Eigen::Triplet<float> Triplet;
 void ColorMapper::map_color() {
     load_keyframes();
     load_images();
-//    base_map();
+    base_map();
 }
 
 void ColorMapper::load_keyframes() {
     map_units.clear();
 
-    const std::string path_folder = "output/convert/";
+    const std::string path_folder = "output/data1/";
     const std::string path_file = "pose.log";
     std::fstream keyFrameFile(path_folder + path_file);
 
