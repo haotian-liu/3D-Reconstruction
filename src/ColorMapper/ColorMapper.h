@@ -6,7 +6,9 @@
 #define INC_3DRECONSTRUCTION_COLORMAPPER_H
 
 #include <vector>
-#include "opencv/cv.hpp"
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "Geometry/Shape.h"
 #include "Shader/ShaderProgram.h"
 
@@ -25,7 +27,7 @@ struct MapUnit {
     void load_image() {
         auto temp = cv::imread(path + key + ".jpg");
         temp.convertTo(color_image, CV_32F, 1.f / 255, 0);
-        cv::cvtColor(color_image, grey_image, CV_BGR2GRAY);
+        cv::cvtColor(color_image, grey_image, cv::COLOR_BGR2GRAY);
         cv::Scharr(grey_image, grad_x, -1, 0, 1);
         cv::Scharr(grey_image, grad_y, -1, 1, 0);
         cv::normalize(grad_x, grad_x, 0, 1, cv::NORM_MINMAX);

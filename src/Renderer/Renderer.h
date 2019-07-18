@@ -12,7 +12,8 @@
 #include "Shader/ShaderProgram.h"
 #include "Geometry/Shape.h"
 #include "ColorMapper/ColorMapper.h"
-#include <opencv/cv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/core.hpp>
 
 class Renderer {
 public:

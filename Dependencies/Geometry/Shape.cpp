@@ -86,7 +86,8 @@ void Shape::centralize() {
         if (Min.y > v.y) { Min.y = v.y; }
         if (Min.z > v.z) { Min.z = v.z; }
     }
-    offset = -(Max + Min) / 2.f;
+    offset = (Max + Min) / 2.f;
+    size = Max - Min;
 }
 
 void Shape::generate_normals() {
@@ -111,7 +112,7 @@ void Shape::generate_normals() {
 }
 
 void Shape::initialize_colors() {
-    colors.resize(vertices.size(), glm::vec4(0.5f));
+    colors.resize(vertices.size(), glm::vec4(0.1f));
 }
 
 void Shape::convert_to_glm(const std::vector<GLfloat> &in_vector, std::vector<glm::vec2> &out_glm_vector) {

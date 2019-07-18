@@ -1,16 +1,19 @@
 cmake_minimum_required(VERSION 3.8)
 project(3DReconstruction)
 
-set(CMAKE_CXX_COMPILER /usr/local/bin/g++-8)
-set(CMAKE_C_COMPILER /usr/local/bin/gcc-8)
+#set(CMAKE_CXX_COMPILER /usr/local/bin/g++-9)
+#set(CMAKE_C_COMPILER /usr/local/bin/gcc-9)
 
 set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenCV REQUIRED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -framework OpenGL -lGLEW -lglfw -O2 -march=native")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -framework OpenGL")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/local/Cellar/glew/2.1.0/lib -L/usr/local/Cellar/glfw/3.3/lib -lGLEW -lglfw")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2 -march=native")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
 include_directories(
+        /usr/local/include
         Dependencies
         Dependencies/glm/
         src/

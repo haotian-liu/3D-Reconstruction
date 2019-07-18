@@ -31,6 +31,7 @@ struct Shape {
     glm::mat4 transform = glm::mat4(1.f);
 
     glm::vec3 offset = glm::vec3(0.f);
+    glm::vec3 size = glm::vec3(0.f);
 
     static void convert_to_glm(const std::vector<GLfloat> &in_vector, std::vector<glm::vec2> &out_glm_vector);
     static void convert_to_glm(const std::vector<GLfloat> &in_vector, std::vector<glm::vec3> &out_glm_vector);

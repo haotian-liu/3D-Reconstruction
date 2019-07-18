@@ -136,12 +136,12 @@ void Renderer::idle(GLFWwindow *window) {
 void Renderer::updateCamera() {
     viewDirection = glm::mat3(viewTransform) * glm::vec3(0.f, 0.f, 1.f);
     viewDirection = glm::normalize(viewDirection);
-    lightDirection = viewDirection - shape.offset;
+    lightDirection = viewDirection;
 
     viewMatrix = glm::lookAt(
-            viewDirection * Dist - shape.offset,
+            viewDirection * Dist,
 //            glm::vec3(0.f, 0.f, 0.f),
-            centerPoint - shape.offset,
+            centerPoint,
             glm::mat3(viewTransform) * glm::vec3(0.f, 1.f, 0.f)
     );
 }
@@ -151,7 +151,7 @@ void Renderer::render() {
 //    modelMatrix = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 1.f, 0.f))
 //                  * glm::rotate(glm::mat4(1.f), glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f))
 //                  * glm::translate(glm::mat4(1.f), shape.offset);
-    modelMatrix = glm::mat4(1.f);
+    modelMatrix = glm::translate(glm::mat4(1.f), -shape.offset);
     updateCamera();
 
     shader->Activate();

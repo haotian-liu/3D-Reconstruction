@@ -19,7 +19,7 @@ typedef Eigen::Triplet<float> Triplet;
 void ColorMapper::map_color() {
     load_keyframes();
     load_images();
-    base_map();
+//    base_map();
 }
 
 void ColorMapper::load_keyframes() {
@@ -81,7 +81,8 @@ void ColorMapper::base_map() {
     prepare_OGL(u);
     register_depths(u);
 //    register_views(u);
-    register_vertices(u);
+    if (optimize_flag == 2) { register_views(u); register_vertices_pose_only(u); }
+    else register_vertices(u);
     destroy_OGL(u);
     printf("[LOG] vertices registered.\n");
 
@@ -926,7 +927,8 @@ void ColorMapper::color_vertices_pose_only(GLUnit &u, bool need_color) {
                     continue;
                 }
 
-                float pixel = mapper.grey_image.at<float>(cy, cx);
+//                float pixel = mapper.grey_image.at<float>(cy, cx);
+                float pixel = getColorSubpix(mapper.grey_image, cv::Point2f(cx, cy));
                 grey_colors[id] += pixel;
 
                 if (need_color) {
@@ -998,8 +1000,10 @@ void ColorMapper::optimize_pose_only(GLUnit &u) {
                 float pixel = grey_colors[id] - mapper.grey_image.at<float>(cy, cx);
 
                 J_Gamma <<
-                        mapper.grad_x.at<float>(cy, cx),
-                        mapper.grad_y.at<float>(cy, cx);
+//                        mapper.grad_x.at<float>(cy, cx),
+//                        mapper.grad_y.at<float>(cy, cx);
+                        getColorSubpix(mapper.grad_x, cv::Point2f(cx, cy)),
+                        getColorSubpix(mapper.grad_y, cv::Point2f(cx, cy));
 
                 _Jr = J_Gamma * Ju * Jg;
 
